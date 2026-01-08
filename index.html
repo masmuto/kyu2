@@ -3,641 +3,612 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wood-IT | Sistem Pengelolaan Kayu Log</title>
+    <title>Kayu Log Management System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Library untuk Ekspor -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
-        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
-        input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
-
+        .no-scrollbar::-webkit-scrollbar { display: none; }
         @media print {
             .no-print { display: none !important; }
             .print-only { display: block !important; }
+            body { background: white; }
         }
-        .active-nav { background-color: rgba(245, 158, 11, 1); color: white; }
+        .print-only { display: none; }
+        .role-badge { @apply px-2 py-0.5 rounded-full text-[10px] font-bold uppercase; }
+        
+        /* Animasi Pin Entry */
+        .pin-dot { @apply w-4 h-4 rounded-full border-2 border-slate-700 transition-all duration-200; }
+        .pin-dot.active { @apply bg-amber-500 border-amber-500 scale-125 shadow-[0_0_10px_rgba(245,158,11,0.5)]; }
+        
+        .shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen">
-
-    <!-- Screen: Auth -->
-    <div id="auth-screen" class="fixed inset-0 z-[100] bg-slate-900 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
-            <div class="p-8 text-center space-y-2 border-b bg-slate-50">
-                <div class="bg-amber-600 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 text-white">
-                    <i data-lucide="package" class="w-7 h-7"></i>
-                </div>
-                <h2 id="auth-title" class="text-2xl font-black text-slate-800 tracking-tight">Selamat Datang di Wood-IT</h2>
-                <p id="auth-desc" class="text-sm text-slate-500">Masuk untuk mengelola operasional kayu log.</p>
+<body class="bg-slate-50 text-slate-900">
+    <!-- Layar Kunci PIN -->
+    <div id="lock-screen" class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center transition-all duration-500">
+        <div class="max-w-xs w-full text-center px-6" id="pin-container">
+            <div class="mb-8 inline-flex p-5 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl">
+                <i data-lucide="shield-check" class="w-10 h-10 text-amber-500"></i>
             </div>
+            <h2 class="text-2xl font-bold text-white mb-2 tracking-tight">Akses Sistem</h2>
+            <p class="text-slate-500 text-sm mb-8">Masukkan 4 digit PIN keamanan</p>
             
-            <div class="p-10 space-y-6">
-                <button onclick="handleGoogleSignIn()" class="w-full py-4 px-6 bg-white border border-slate-200 rounded-2xl shadow-sm flex items-center justify-center space-x-3 hover:bg-slate-50 transition-all duration-200 group">
-                    <svg class="w-5 h-5" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    <span class="text-slate-700 font-bold">Lanjutkan dengan Google</span>
-                </button>
-                <div id="auth-error" class="text-xs text-red-500 text-center hidden font-medium bg-red-50 p-3 rounded-xl"></div>
+            <div id="pin-dots" class="flex justify-center gap-5 mb-12">
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
             </div>
+
+            <!-- Keypad Numerik Statis -->
+            <div class="grid grid-cols-3 gap-3">
+                <button onclick="inputPin(1)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">1</button>
+                <button onclick="inputPin(2)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">2</button>
+                <button onclick="inputPin(3)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">3</button>
+                <button onclick="inputPin(4)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">4</button>
+                <button onclick="inputPin(5)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">5</button>
+                <button onclick="inputPin(6)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">6</button>
+                <button onclick="inputPin(7)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">7</button>
+                <button onclick="inputPin(8)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">8</button>
+                <button onclick="inputPin(9)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">9</button>
+                <button onclick="clearPin()" class="h-16 rounded-2xl bg-slate-900 text-slate-400 text-xs font-bold hover:bg-rose-900/20 hover:text-rose-500 active:scale-90 transition-all border border-slate-800/50 uppercase">Hapus</button>
+                <button onclick="inputPin(0)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">0</button>
+                <button onclick="validatePin()" class="h-16 rounded-2xl bg-amber-600 text-white text-lg font-bold hover:bg-amber-500 active:bg-amber-700 active:scale-90 transition-all shadow-lg shadow-amber-900/20 uppercase">OK</button>
+            </div>
+            <p id="pin-error" class="mt-8 text-rose-500 text-sm font-semibold tracking-wide opacity-0 transition-opacity">PIN Salah. Silakan coba lagi.</p>
         </div>
     </div>
 
-    <!-- Main Application -->
-    <div id="app" class="hidden flex flex-col md:flex-row min-h-screen">
-        <!-- Navigasi Sidebar -->
-        <aside class="w-full md:w-64 bg-slate-900 text-white p-6 flex flex-col space-y-8 no-print shrink-0">
-            <div class="flex items-center space-x-3 px-2">
-                <div class="bg-amber-600 p-2 rounded-lg">
-                    <i data-lucide="package" class="w-6 h-6"></i>
+    <div id="app" class="flex min-h-screen overflow-hidden opacity-0 transition-all duration-700 scale-[0.98]">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="no-print w-64 bg-slate-950 text-white flex-shrink-0 flex flex-col transition-all duration-300 lg:translate-x-0 -translate-x-full fixed lg:relative z-50 h-full border-r border-slate-900">
+            <div class="p-6 flex items-center gap-3 border-b border-slate-900">
+                <div class="w-8 h-8 bg-amber-600 rounded-lg flex items-center justify-center shadow-lg shadow-amber-900/20">
+                    <i data-lucide="trees" class="w-5 h-5 text-white"></i>
                 </div>
-                <div>
-                    <h1 class="text-xl font-bold tracking-tight" id="sidebar-company-name">Wood-IT Log</h1>
-                    <p class="text-[10px] text-amber-500 font-bold uppercase tracking-widest">Management System</p>
-                </div>
+                <h1 class="font-bold text-lg tracking-tight">KAYU LOG MS</h1>
             </div>
-
-            <nav class="flex-1 space-y-1 overflow-y-auto" id="main-nav">
-                <button onclick="switchView('dashboard')" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-dashboard">
-                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
-                    <span>Dashboard</span>
-                </button>
-                <button onclick="switchView('inventory')" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-inventory">
-                    <i data-lucide="database" class="w-5 h-5"></i>
-                    <span>Stok Log</span>
-                </button>
-                <button onclick="switchView('sales')" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-sales">
-                    <i data-lucide="shopping-cart" class="w-5 h-5"></i>
-                    <span>Kayu Keluar</span>
-                </button>
-                <button onclick="switchView('expenses')" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-expenses">
-                    <i data-lucide="receipt" class="w-5 h-5"></i>
-                    <span>Biaya & Beban</span>
-                </button>
-                
-                <div class="admin-only hidden pt-4 pb-2 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Laporan & Keuangan</div>
-                <button onclick="switchView('reports')" class="nav-btn admin-only hidden w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-reports">
-                    <i data-lucide="pie-chart" class="w-5 h-5"></i>
-                    <span>Laporan Keuangan</span>
-                </button>
-                
-                <div class="pt-4 pb-2 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kontak & Sistem</div>
-                <button onclick="switchView('suppliers')" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-suppliers">
-                    <i data-lucide="truck" class="w-5 h-5"></i>
-                    <span>Data Supplier</span>
-                </button>
-                <button onclick="switchView('customers')" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-customers">
-                    <i data-lucide="users" class="w-5 h-5"></i>
-                    <span>Data Pelanggan</span>
-                </button>
-                
-                <button onclick="switchView('settings')" class="nav-btn admin-only hidden w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-settings">
-                    <i data-lucide="settings" class="w-5 h-5"></i>
-                    <span>Pengaturan</span>
-                </button>
-            </nav>
-
-            <div class="pt-6 border-t border-white/10 flex items-center space-x-3 px-2">
-                <img id="user-photo" class="w-10 h-10 rounded-full border-2 border-amber-500" src="https://ui-avatars.com/api/?name=User" alt="User">
-                <div class="flex-1 min-w-0">
-                    <div id="user-info-name" class="text-xs font-bold text-white truncate">User</div>
-                    <div id="user-role-badge" class="text-[9px] font-bold uppercase text-amber-500">ROLE</div>
+            <nav id="nav-menu" class="flex-1 overflow-y-auto p-4 space-y-1 no-scrollbar"></nav>
+            <div class="p-4 border-t border-slate-900 bg-slate-950/50">
+                <div id="user-info" class="flex items-center gap-3 px-2">
+                    <div id="user-avatar" class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-xs font-bold border border-slate-700 text-amber-500">?</div>
+                    <div class="flex-1 overflow-hidden">
+                        <p class="text-sm font-semibold truncate text-slate-200" id="user-id-display">Memuat...</p>
+                        <p class="text-[10px] text-amber-500 font-black uppercase tracking-widest" id="user-role-display">Guest</p>
+                    </div>
                 </div>
-                <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-white transition">
-                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                <button onclick="lockApp()" class="mt-4 w-full flex items-center gap-2 px-3 py-2.5 text-xs text-slate-500 hover:text-white hover:bg-slate-900 rounded-xl transition-all border border-transparent hover:border-slate-800">
+                    <i data-lucide="log-out" class="w-4 h-4"></i> Kunci Aplikasi
                 </button>
             </div>
         </aside>
 
-        <!-- Konten Utama -->
-        <main class="flex-1 p-4 md:p-10 overflow-y-auto">
-            <div id="loading" class="fixed inset-0 bg-white/80 z-50 flex items-center justify-center transition-opacity no-print">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600"></div>
-            </div>
-
-            <!-- Dashboard -->
-            <section id="view-dashboard" class="space-y-8 no-print">
-                <header>
-                    <h2 class="text-2xl font-bold text-slate-800" id="welcome-title">Dashboard Operasional</h2>
-                    <p class="text-slate-500">Monitoring volume dan aset perusahaan secara real-time.</p>
-                </header>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="p-3 bg-amber-100 text-amber-600 rounded-xl"><i data-lucide="boxes" class="w-6 h-6"></i></div>
-                        </div>
-                        <h3 class="text-slate-500 text-sm font-medium">Total Volume Stok</h3>
-                        <p class="text-2xl font-black text-slate-900 mt-1" id="stat-total-volume">0.00 m³</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="p-3 bg-green-100 text-green-600 rounded-xl"><i data-lucide="wallet" class="w-6 h-6"></i></div>
-                        </div>
-                        <h3 class="text-slate-500 text-sm font-medium">Nilai Stok (HPP)</h3>
-                        <p class="text-2xl font-black text-slate-900 mt-1" id="stat-total-price">Rp 0</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="p-3 bg-red-100 text-red-600 rounded-xl"><i data-lucide="arrow-up-right" class="w-6 h-6"></i></div>
-                        </div>
-                        <h3 class="text-slate-500 text-sm font-medium">Total Hutang</h3>
-                        <p class="text-2xl font-black text-red-600 mt-1" id="stat-total-debt">Rp 0</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="p-3 bg-blue-100 text-blue-600 rounded-xl"><i data-lucide="arrow-down-left" class="w-6 h-6"></i></div>
-                        </div>
-                        <h3 class="text-slate-500 text-sm font-medium">Total Piutang</h3>
-                        <p class="text-2xl font-black text-blue-600 mt-1" id="stat-total-receivable">Rp 0</p>
-                    </div>
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col min-w-0 bg-slate-50 relative overflow-y-auto h-screen">
+            <header class="no-print sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="lg:hidden p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                        <i data-lucide="menu" class="w-6 h-6 text-slate-600"></i>
+                    </button>
+                    <h2 id="view-title" class="text-xl font-bold text-slate-800 tracking-tight">Dashboard</h2>
                 </div>
-            </section>
-
-            <!-- Laporan Keuangan (Admin Only) -->
-            <section id="view-reports" class="hidden space-y-8 no-print admin-only">
-                <header class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h2 class="text-2xl font-bold text-slate-800">Laporan Keuangan</h2>
-                        <p class="text-slate-500">Analisis kinerja bisnis dan arus kas.</p>
-                    </div>
-                </header>
-
-                <div id="report-content-to-export" class="space-y-8">
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 space-y-6">
-                            <h3 class="text-lg font-bold text-slate-800 border-b pb-4">Ringkasan Laba Rugi</h3>
-                            <div class="space-y-4 divide-y divide-slate-50 text-sm">
-                                <div class="flex justify-between py-2"><span class="text-slate-500">Total Penjualan</span><span class="font-bold text-blue-600" id="report-total-revenue">Rp 0</span></div>
-                                <div class="flex justify-between py-2"><span class="text-slate-500">Total Pembelian (HPP)</span><span class="font-bold text-red-500" id="report-total-cogs">Rp 0</span></div>
-                                <div class="flex justify-between py-2"><span class="text-slate-500">Total Beban Operasional (-)</span><span class="font-bold text-red-400" id="report-total-expenses">Rp 0</span></div>
-                                <div class="flex justify-between py-4 border-t-2 border-slate-900 font-black text-xl"><span>Estimasi Profit</span><span id="report-net-profit">Rp 0</span></div>
-                            </div>
-                        </div>
-                        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 space-y-6">
-                            <h3 class="text-lg font-bold text-slate-800 border-b pb-4">Arus Kas (Cashflow)</h3>
-                            <div class="space-y-4 text-sm">
-                                <div class="flex justify-between py-2 text-green-600 font-bold"><span>Total Kas Masuk</span><span id="report-cash-in">Rp 0</span></div>
-                                <div class="flex justify-between py-2 text-orange-600 font-bold"><span>Total Kas Keluar</span><span id="report-cash-out">Rp 0</span></div>
-                                <div class="pt-6 mt-6 border-t flex justify-between items-center">
-                                    <span class="font-black text-slate-800 uppercase tracking-widest text-sm">Saldo Kas Aktif</span>
-                                    <span class="font-black text-2xl text-blue-700" id="report-net-cash">Rp 0</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="flex items-center gap-3">
+                    <span id="sync-status" class="flex items-center gap-1.5 text-[10px] text-emerald-600 font-bold bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 uppercase tracking-wider">
+                        <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Online
+                    </span>
                 </div>
-            </section>
-
-            <!-- Stok Log -->
-            <section id="view-inventory" class="hidden space-y-6 no-print">
-                <header class="flex items-center justify-between">
-                    <div>
-                        <h2 class="text-2xl font-bold text-slate-800">Stok Log</h2>
-                        <p class="text-slate-500">Daftar inventaris log aktif.</p>
-                    </div>
-                    <button onclick="openModal('wood')" class="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2 rounded-xl shadow-lg font-bold transition-all">Input Nota Baru</button>
-                </header>
-                <div class="bg-white rounded-2xl shadow-sm border overflow-hidden">
-                    <table class="w-full text-left">
-                        <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
-                            <tr>
-                                <th class="px-6 py-4">No. Nota</th>
-                                <th class="px-6 py-4">Supplier</th>
-                                <th class="px-6 py-4 text-center">Volume (m³)</th>
-                                <th class="px-6 py-4 text-right">Nilai (IDR)</th>
-                                <th class="px-6 py-4 text-right">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inventory-table-body" class="divide-y text-sm"></tbody>
-                    </table>
-                </div>
-            </section>
-
-            <!-- Kayu Keluar -->
-            <section id="view-sales" class="hidden space-y-6 no-print">
-                <header class="flex items-center justify-between">
-                    <div>
-                        <h2 class="text-2xl font-bold text-slate-800">Kayu Keluar</h2>
-                        <p class="text-slate-500">Catatan pengiriman log ke pelanggan.</p>
-                    </div>
-                    <button onclick="openModal('sales')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl shadow-lg font-bold">Input SJ/Nota Keluar</button>
-                </header>
-                <div class="bg-white rounded-2xl shadow-sm border overflow-hidden"><table class="w-full text-left"><thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold"><tr><th class="px-6 py-4">SJ / Invoice</th><th class="px-6 py-4">Pelanggan</th><th class="px-6 py-4 text-center">Volume</th><th class="px-6 py-4 text-right">Nilai Jual</th><th class="px-6 py-4 text-right">Aksi</th></tr></thead><tbody id="sales-table-body" class="divide-y text-sm"></tbody></table></div>
-            </section>
-
-            <!-- Biaya & Beban -->
-            <section id="view-expenses" class="hidden space-y-6 no-print">
-                <header class="flex items-center justify-between">
-                    <h2 class="text-2xl font-bold text-slate-800">Biaya & Beban</h2>
-                    <button onclick="openModal('expense')" class="bg-rose-500 hover:bg-rose-600 text-white px-6 py-2 rounded-xl shadow-lg font-bold">Input Pengeluaran</button>
-                </header>
-                <div class="bg-white rounded-2xl shadow-sm border overflow-hidden"><table class="w-full text-left"><thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold"><tr><th class="px-6 py-4">Tgl</th><th class="px-6 py-4">Kategori</th><th class="px-6 py-4">Catatan</th><th class="px-6 py-4 text-right">Nominal</th><th class="px-6 py-4 text-right">Aksi</th></tr></thead><tbody id="expenses-table-body" class="divide-y text-sm"></tbody></table></div>
-            </section>
-
-            <!-- Kontak -->
-            <section id="view-suppliers" class="hidden space-y-6 no-print">
-                <header class="flex items-center justify-between"><h2 class="text-2xl font-bold text-slate-800">Data Supplier</h2><button onclick="openModal('contact', 'supplier')" class="bg-slate-800 text-white px-6 py-3 rounded-xl shadow-lg">Tambah Supplier</button></header>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="suppliers-list"></div>
-            </section>
-
-            <section id="view-customers" class="hidden space-y-6 no-print">
-                <header class="flex items-center justify-between"><h2 class="text-2xl font-bold text-slate-800">Data Pelanggan</h2><button onclick="openModal('contact', 'customer')" class="bg-slate-800 text-white px-6 py-3 rounded-xl shadow-lg">Tambah Pelanggan</button></header>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="customers-list"></div>
-            </section>
-
-            <!-- Pengaturan (Admin Only) -->
-            <section id="view-settings" class="hidden space-y-8 no-print admin-only">
-                <header><h2 class="text-2xl font-bold text-slate-800">Pengaturan & Pengguna</h2></header>
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div class="lg:col-span-1 bg-white p-8 rounded-2xl shadow-sm border space-y-6">
-                        <h3 class="font-bold text-slate-800 uppercase tracking-widest text-xs">Profil Perusahaan</h3>
-                        <div class="space-y-4">
-                            <input type="text" id="set-comp-name" placeholder="Nama Perusahaan" class="w-full p-3 rounded-xl border">
-                            <textarea id="set-comp-addr" placeholder="Alamat..." class="w-full p-3 rounded-xl border"></textarea>
-                            <button onclick="saveCompanyProfile()" class="w-full py-3 bg-amber-600 text-white font-bold rounded-xl">Simpan</button>
-                        </div>
-                    </div>
-                    <div class="lg:col-span-2 bg-white p-8 rounded-2xl shadow-sm border">
-                        <h3 class="font-bold text-slate-800 uppercase tracking-widest text-xs mb-6">Manajemen Pengguna</h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-sm">
-                                <thead class="bg-slate-50 font-bold uppercase text-[10px] text-slate-400"><tr><th class="p-4">Nama</th><th class="p-4">Email</th><th class="p-4">Peran</th><th class="p-4 text-right">Opsi</th></tr></thead>
-                                <tbody id="users-table-body" class="divide-y"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </section>
+            </header>
+            <div id="view-content" class="p-6"></div>
         </main>
     </div>
 
-    <!-- Modals -->
-    <div id="wood-modal" class="fixed inset-0 z-[110] hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto no-print">
-        <div class="bg-white w-full max-w-4xl my-8 rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-            <div class="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-10"><h3 class="text-lg font-black text-slate-800 uppercase tracking-tight">Input Log Baru</h3><button onclick="closeModal('wood')" class="text-slate-400"><i data-lucide="x" class="w-6 h-6"></i></button></div>
-            <div class="flex-1 overflow-y-auto p-8 space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><input type="text" id="wood-nota" placeholder="No. Nota" class="p-4 rounded-2xl border bg-slate-50 outline-none"><select id="wood-supplier-select" class="p-4 rounded-2xl border bg-slate-50 outline-none"></select></div>
-                <div class="grid grid-cols-4 gap-2">
-                    <input type="number" step="0.1" id="log-d1" oninput="liveUpdateCalc()" class="p-3 rounded-xl border bg-slate-50" placeholder="d1"><input type="number" step="0.1" id="log-d2" oninput="liveUpdateCalc()" class="p-3 rounded-xl border bg-slate-50" placeholder="d2"><input type="number" step="0.1" id="log-d3" oninput="liveUpdateCalc()" class="p-3 rounded-xl border bg-slate-50" placeholder="d3"><input type="number" step="0.1" id="log-d4" oninput="liveUpdateCalc()" class="p-3 rounded-xl border bg-slate-50" placeholder="d4">
-                </div>
-                <div class="grid grid-cols-3 gap-2">
-                    <input type="number" id="log-p" oninput="liveUpdateCalc()" class="p-4 rounded-2xl border bg-slate-50" placeholder="P (cm)"><input type="number" id="log-trim" oninput="liveUpdateCalc()" class="p-4 rounded-2xl border bg-slate-50" placeholder="Trim"><input type="number" id="log-gr" oninput="liveUpdateCalc()" class="p-4 rounded-2xl border bg-slate-50" placeholder="GR">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <input type="text" id="wood-type" class="p-4 rounded-2xl border bg-slate-50" placeholder="Jenis Kayu"><input type="number" id="wood-price" placeholder="Harga (IDR)" class="p-4 rounded-2xl border bg-slate-50">
-                </div>
-                <div class="grid grid-cols-3 gap-4 bg-slate-900 text-white p-6 rounded-3xl">
-                    <div class="text-center"><span class="text-[10px] uppercase font-bold text-slate-400">Avg D</span><div id="res-live-avg-d" class="text-xl font-black">0 cm</div></div>
-                    <div class="text-center border-x border-white/10"><span class="text-[10px] uppercase font-bold text-slate-400">Vol GR</span><div id="res-live-vol-gr" class="text-xl font-black">0.00 m³</div></div>
-                    <div class="text-center"><span class="text-[10px] uppercase font-bold text-slate-400">Vol Neto</span><div id="res-live-vol-wood" class="text-xl font-black text-amber-500">0.00 m³</div></div>
-                </div>
-                <button onclick="addItemToBatch('wood')" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm uppercase">+ Tambah Ke Batch</button>
-                <div class="border rounded-2xl overflow-hidden"><table class="w-full text-xs text-left"><thead class="bg-slate-50"><tr><th class="p-3">Kayu</th><th class="p-3 text-center">Neto</th><th class="p-3 text-center">GR</th><th class="p-3 text-right">Aksi</th></tr></thead><tbody id="wood-batch-table" class="divide-y"></tbody></table></div>
-            </div>
-            <div class="p-6 border-t flex justify-end space-x-3 bg-slate-50"><button onclick="closeModal('wood')" class="px-6 py-3 border rounded-xl font-bold">Batal</button><button onclick="submitBatchToFirebase()" id="btn-save-batch-wood" disabled class="px-10 py-3 bg-amber-600 text-white font-black rounded-xl uppercase shadow-lg">Simpan Seluruh Nota</button></div>
-        </div>
+    <div id="print-area" class="print-only p-8 bg-white"></div>
+
+    <div id="modal-container" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300">
+        <div id="modal-content" class="bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto p-8 transform scale-95 transition-all duration-300 border border-slate-200"></div>
     </div>
 
-    <!-- Sales Modal -->
-    <div id="sales-modal" class="fixed inset-0 z-[110] hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto no-print">
-        <div class="bg-white w-full max-w-4xl my-8 rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-            <div class="p-6 border-b flex justify-between items-center bg-white sticky top-0 z-10"><h3 class="text-lg font-black text-slate-800 uppercase tracking-tight">Input Kayu Keluar</h3><button onclick="closeModal('sales')" class="text-slate-400"><i data-lucide="x" class="w-6 h-6"></i></button></div>
-            <div class="flex-1 overflow-y-auto p-8 space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><input type="text" id="sales-nota" placeholder="No. SJ/Nota" class="p-4 rounded-2xl border bg-slate-50 outline-none"><select id="sales-customer-select" class="p-4 rounded-2xl border bg-slate-50 outline-none"></select></div>
-                <div class="border-2 border-dashed border-slate-200 rounded-2xl p-6 space-y-4">
-                    <select id="sales-stock-select" onchange="fillSalesFromStock()" class="w-full p-4 rounded-xl border bg-slate-50 outline-none"></select>
-                    <div class="grid grid-cols-2 gap-4"><input type="text" id="sales-wood-type" class="p-4 rounded-2xl border bg-slate-50" placeholder="Jenis"><input type="number" step="0.01" id="sales-wood-vol" class="p-4 rounded-2xl border bg-slate-50" placeholder="Volume"></div>
-                    <input type="number" id="sales-wood-price" placeholder="Harga Jual" class="w-full p-4 rounded-2xl border bg-slate-50">
-                    <button onclick="addItemToBatch('sales')" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-sm uppercase">+ Tambah</button>
-                </div>
-                <div class="border rounded-2xl overflow-hidden"><table class="w-full text-xs text-left"><tbody id="sales-batch-table" class="divide-y"></tbody></table></div>
-            </div>
-            <div class="p-6 border-t flex justify-end bg-slate-50"><button onclick="submitBatchSales()" id="btn-save-batch-sales" disabled class="px-10 py-3 bg-blue-600 text-white font-black rounded-xl uppercase shadow-lg">Simpan Penjualan</button></div>
-        </div>
-    </div>
-
-    <!-- Expense Modal -->
-    <div id="expense-modal" class="fixed inset-0 z-[110] hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm no-print">
-        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-8 space-y-6">
-            <h3 class="font-bold text-slate-800 uppercase tracking-widest text-xs">Input Biaya/Beban</h3>
-            <div class="space-y-4">
-                <select id="exp-cat" class="w-full p-3 rounded-xl border"><option value="Operasional">Operasional</option><option value="Gaji">Gaji</option><option value="BBM">BBM</option><option value="Lainnya">Lainnya</option></select>
-                <input type="number" id="exp-amt" placeholder="Nominal Rp" class="w-full p-3 rounded-xl border">
-                <textarea id="exp-note" placeholder="Keterangan..." class="w-full p-3 rounded-xl border"></textarea>
-                <button onclick="submitExpense()" class="w-full py-4 bg-rose-500 text-white font-bold rounded-2xl">Simpan</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Contact Modal -->
-    <div id="contact-modal" class="fixed inset-0 z-[110] hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm no-print">
-        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-8 space-y-6">
-            <h3 id="contact-modal-title" class="font-bold text-slate-800 uppercase tracking-widest text-xs">Tambah Kontak</h3>
-            <div class="space-y-4">
-                <input type="hidden" id="contact-type">
-                <input type="text" id="contact-name" placeholder="Nama..." class="w-full p-3 rounded-xl border">
-                <button onclick="submitContact()" class="w-full py-4 bg-slate-900 text-white font-bold rounded-2xl">Simpan Kontak</button>
-            </div>
-        </div>
-    </div>
-
+    <!-- Firebase Scripts -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, onSnapshot, serverTimestamp, writeBatch, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- FIREBASE CONFIG (REAL PROJECT) ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyD8m4HiTateYgP-79EmbKkqOG-lBIeikBc",
-            authDomain: "log-master-687fd.firebaseapp.com",
-            projectId: "log-master-687fd",
-            storageBucket: "log-master-687fd.firebasestorage.app",
-            messagingSenderId: "1020351029888",
-            appId: "1:1020351029888:web:47706ebb73f446207b7c65",
-            measurementId: "G-1NB596ZWQ1"
-        };
-
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'kayu-log-ms';
+        const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = "log-master-system";
-        const provider = new GoogleAuthProvider();
+        
+        let currentUser = null;
+        let userRole = null; 
+        let currentView = 'dashboard';
+        let enteredPin = "";
+        let securityConfig = null;
+        let data = { inventory: [], sales: [], contacts: [], expenses: [], users: [], settings: {} };
 
-        // --- STATE ---
-        let userData = null;
-        let isSetupMode = false;
-        let inventory = [], contacts = [], sales = [], expenses = [], transactions = [], users = [];
-        let tempBatch = [], liveNeto = 0, liveAvgD = 0, liveGR = 0;
-
-        // --- UTILS ---
-        const refreshIcons = () => { if (window.lucide) window.lucide.createIcons(); };
-        const formatCurrency = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n || 0);
-
-        // --- AUTH FLOW ---
-        const checkSetup = async () => {
-            if (!auth.currentUser) return;
-            try {
-                const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'users'));
-                if (snap.empty) {
-                    isSetupMode = true;
-                    document.getElementById('auth-title').innerText = "Persiapan Admin Pertama";
-                    document.getElementById('auth-desc').innerText = "Belum ada Admin terdaftar. User Google pertama yang masuk akan otomatis menjadi Admin Utama.";
-                }
-            } catch (err) { console.error(err); }
+        const ROLE_PERMISSIONS = {
+            admin: ['dashboard', 'inventory', 'sales', 'expenses', 'contacts', 'reports', 'settings', 'users'],
+            kasir: ['dashboard', 'inventory', 'sales', 'contacts']
         };
 
-        window.handleGoogleSignIn = async () => {
-            const errEl = document.getElementById('auth-error');
-            errEl.classList.add('hidden');
-            try {
-                const result = await signInWithPopup(auth, provider);
-                const user = result.user;
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
-                const docSnap = await getDoc(docRef);
-                
-                if (isSetupMode) {
-                    await setDoc(docRef, { email: user.email, name: user.displayName, photo: user.photoURL, role: 'Admin', createdAt: serverTimestamp() });
-                    isSetupMode = false;
-                } else if (!docSnap.exists()) {
-                    await signOut(auth);
-                    errEl.innerText = "Akses Ditolak. Email ini belum didaftarkan Admin ke sistem.";
-                    errEl.classList.remove('hidden');
+        // --- PIN LOGIC ---
+        window.inputPin = (num) => {
+            if (enteredPin.length < 4) {
+                enteredPin += num;
+                updatePinDots();
+                document.getElementById('pin-error').classList.add('opacity-0');
+                if (enteredPin.length === 4) {
+                    setTimeout(validatePin, 200);
                 }
-            } catch (err) { errEl.innerText = err.message; errEl.classList.remove('hidden'); }
+            }
         };
 
-        window.handleLogout = () => signOut(auth).then(() => location.reload());
+        window.clearPin = () => {
+            enteredPin = "";
+            updatePinDots();
+        };
 
-        onAuthStateChanged(auth, async (u) => {
-            if (u && !u.isAnonymous) {
-                const docSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', u.uid));
-                if (docSnap.exists()) {
-                    userData = docSnap.data();
-                    document.getElementById('auth-screen').classList.add('hidden');
-                    document.getElementById('app').classList.remove('hidden');
-                    document.getElementById('user-info-name').innerText = userData.name;
-                    document.getElementById('user-role-badge').innerText = userData.role;
-                    if(userData.photo) document.getElementById('user-photo').src = userData.photo;
-                    
-                    document.querySelectorAll('.admin-only').forEach(el => userData.role === 'Admin' ? el.classList.remove('hidden') : el.classList.add('hidden'));
-                    startSync(); switchView('dashboard');
-                } else { checkSetup(); }
-            } else if (u && u.isAnonymous) {
-                checkSetup();
+        function updatePinDots() {
+            const dots = document.querySelectorAll('.pin-dot');
+            dots.forEach((dot, i) => {
+                if (i < enteredPin.length) dot.classList.add('active');
+                else dot.classList.remove('active');
+            });
+        }
+
+        window.validatePin = async () => {
+            if (enteredPin.length < 4) return;
+            
+            const adminPin = securityConfig?.adminPin || "1234";
+            const kasirPin = securityConfig?.kasirPin || "5678";
+
+            if (enteredPin === adminPin) {
+                userRole = 'admin';
+                unlockApp();
+            } else if (enteredPin === kasirPin) {
+                userRole = 'kasir';
+                unlockApp();
             } else {
-                document.getElementById('auth-screen').classList.remove('hidden');
-                document.getElementById('app').classList.add('hidden');
+                const container = document.getElementById('pin-container');
+                container.classList.add('shake');
+                document.getElementById('pin-error').classList.remove('opacity-0');
+                
+                setTimeout(() => {
+                    container.classList.remove('shake');
+                    enteredPin = "";
+                    updatePinDots();
+                }, 400);
+            }
+        };
+
+        function unlockApp() {
+            document.getElementById('lock-screen').classList.add('opacity-0', 'pointer-events-none');
+            const appEl = document.getElementById('app');
+            appEl.classList.remove('opacity-0', 'scale-[0.98]');
+            appEl.classList.add('scale-100');
+            updateUserUI();
+            navigate('dashboard');
+            showToast(`Selamat Datang, ${userRole.toUpperCase()}`);
+        }
+
+        window.lockApp = () => {
+            userRole = null;
+            enteredPin = "";
+            updatePinDots();
+            document.getElementById('lock-screen').classList.remove('opacity-0', 'pointer-events-none');
+            const appEl = document.getElementById('app');
+            appEl.classList.add('opacity-0', 'scale-[0.98]');
+            appEl.classList.remove('scale-100');
+        };
+
+        // --- AUTENTIKASI ---
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth failed:", error);
+            }
+        }
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                const securityRef = doc(db, 'artifacts', appId, 'public', 'data', 'security', 'config');
                 try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
-                    else await signInAnonymously(auth);
-                } catch (e) { await signInAnonymously(auth); }
+                    const securityDoc = await getDoc(securityRef);
+                    if (!securityDoc.exists()) {
+                        securityConfig = { adminPin: "1234", kasirPin: "5678" };
+                        await setDoc(securityRef, securityConfig);
+                    } else {
+                        securityConfig = securityDoc.data();
+                    }
+                    initDataListeners();
+                } catch (err) {
+                    console.error("Security init error:", err);
+                }
             }
         });
 
-        // --- NAVIGATION ---
-        window.switchView = (view) => {
-            if (!userData) return;
-            if ((view === 'reports' || view === 'settings') && userData.role !== 'Admin') view = 'dashboard';
-            document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
-            document.getElementById(`view-${view}`).classList.remove('hidden');
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active-nav'));
-            const b = document.getElementById(`nav-${view}`); if(b) b.classList.add('active-nav');
-            refreshIcons();
-        };
+        function updateUserUI() {
+            if (!currentUser || !userRole) return;
+            document.getElementById('user-id-display').textContent = currentUser.uid.substring(0, 12);
+            document.getElementById('user-role-display').textContent = userRole;
+            document.getElementById('user-avatar').textContent = userRole.charAt(0).toUpperCase();
+            renderSidebar();
+        }
 
-        window.openModal = (id, sub = '') => {
-            document.getElementById(`${id}-modal`).classList.remove('hidden');
-            if (id === 'contact') { document.getElementById('contact-type').value = sub; document.getElementById('contact-modal-title').innerText = `Tambah ${sub}`; }
-            if (id === 'wood' || id === 'sales') { tempBatch = []; renderBatch(id); updateSelects(); }
-            refreshIcons();
-        };
-        window.closeModal = (id) => document.getElementById(`${id}-modal`).classList.add('hidden');
-
-        // --- CORE LOGIC (WOOD VOLUME) ---
-        window.liveUpdateCalc = () => {
-            const d1 = parseFloat(document.getElementById('log-d1').value)||0, d2 = parseFloat(document.getElementById('log-d2').value)||0;
-            const d3 = parseFloat(document.getElementById('log-d3').value)||0, d4 = parseFloat(document.getElementById('log-d4').value)||0;
-            const p = parseFloat(document.getElementById('log-p').value)||0, trim = parseFloat(document.getElementById('log-trim').value)||0, gr = parseFloat(document.getElementById('log-gr').value)||0;
-            liveAvgD = Math.round((d1+d2+d3+d4)/4);
-            document.getElementById('res-live-avg-d').innerText = `${liveAvgD} cm`;
-            const pEff = (p - trim)/100, pOrig = p/100;
-            const volBruto = (0.7854 * Math.pow(liveAvgD, 2) * pEff) / 10000;
-            liveGR = (0.7854 * Math.pow(gr, 2) * pEff) / 10000;
-            liveNeto = Math.max(0, volBruto - liveGR);
-            document.getElementById('res-live-vol-wood').innerText = `${liveNeto.toFixed(2)} m³`;
-            document.getElementById('res-live-vol-gr').innerText = `${liveGR.toFixed(2)} m³`;
-        };
-
-        window.addItemToBatch = (mod) => {
-            if (mod === 'wood') {
-                const type = document.getElementById('wood-type').value, price = parseFloat(document.getElementById('wood-price').value)||0;
-                if (!type || price <= 0 || liveNeto <= 0) return;
-                tempBatch.push({ type, unitVolume: parseFloat(liveNeto.toFixed(2)), volGR: parseFloat(liveGR.toFixed(2)), totalPrice: price });
-            } else {
-                const type = document.getElementById('sales-wood-type').value, vol = parseFloat(document.getElementById('sales-wood-vol').value)||0, price = parseFloat(document.getElementById('sales-wood-price').value)||0;
-                if (!type || vol <= 0 || price <= 0) return;
-                tempBatch.push({ type, volume: vol, price, stockId: document.getElementById('sales-stock-select').value });
-            }
-            renderBatch(mod);
-        };
-
-        const renderBatch = (mod) => {
-            const tb = document.getElementById(`${mod}-batch-table`);
-            if (tb) {
-                tb.innerHTML = tempBatch.map((i, idx) => `<tr class="border-b"><td class="p-3">${i.type}</td><td class="p-3 text-center font-bold">${(i.unitVolume || i.volume).toFixed(2)}</td><td class="p-3 text-right"><button onclick="tempBatch.splice(${idx},1); renderBatch('${mod}');" class="text-red-500">Hapus</button></td></tr>`).join('');
-                document.getElementById(`btn-save-batch-${mod}`).disabled = tempBatch.length === 0;
-            }
-        };
-
-        window.submitBatchToFirebase = async () => {
-            const nota = document.getElementById('wood-nota').value, sid = document.getElementById('wood-supplier-select').value;
-            if(!nota || !sid) return;
-            const batch = writeBatch(db);
-            let totalVal = 0;
-            tempBatch.forEach(i => {
-                totalVal += i.totalPrice;
-                batch.set(doc(collection(db, 'artifacts', appId, 'public', 'data', 'inventory')), { ...i, nota, supplierId: sid, createdAt: serverTimestamp() });
+        // --- DATA LISTENERS ---
+        function initDataListeners() {
+            if (!currentUser) return;
+            const collections = [
+                { name: 'inventory', path: `/artifacts/${appId}/public/data/inventory` },
+                { name: 'sales', path: `/artifacts/${appId}/public/data/sales` },
+                { name: 'contacts', path: `/artifacts/${appId}/public/data/contacts` },
+                { name: 'expenses', path: `/artifacts/${appId}/public/data/expenses` },
+                { name: 'settings', path: `/artifacts/${appId}/public/data/settings/general`, isDoc: true },
+                { name: 'security', path: `/artifacts/${appId}/public/data/security/config`, isDoc: true }
+            ];
+            collections.forEach(col => {
+                if (col.isDoc) {
+                    onSnapshot(doc(db, col.path), (snapshot) => {
+                        if (snapshot.exists()) {
+                            if (col.name === 'security') securityConfig = snapshot.data();
+                            else data[col.name] = snapshot.data();
+                            if (currentView === 'settings') renderView();
+                        }
+                    }, (err) => console.error(`Error loading ${col.name}:`, err));
+                } else {
+                    onSnapshot(collection(db, col.path), (snapshot) => {
+                        data[col.name] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                        renderView();
+                    }, (err) => console.error(`Error loading ${col.name}:`, err));
+                }
             });
-            batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'contacts', sid), { balance: increment(totalVal) });
-            await batch.commit(); closeModal('wood'); alert("Stok Disimpan!");
+        }
+
+        // --- NAVIGASI ---
+        function renderSidebar() {
+            const nav = document.getElementById('nav-menu');
+            if (!nav || !userRole) return;
+            const items = [
+                { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
+                { id: 'inventory', label: 'Inventaris Stok', icon: 'package' },
+                { id: 'sales', label: 'Penjualan', icon: 'shopping-cart' },
+                { id: 'expenses', label: 'Biaya Operasional', icon: 'receipt' },
+                { id: 'contacts', label: 'Kontak', icon: 'users' },
+                { type: 'divider', label: 'Laporan', roles: ['admin'] },
+                { id: 'reports', label: 'Keuangan', icon: 'bar-chart-3', roles: ['admin'] },
+                { type: 'divider', label: 'Sistem', roles: ['admin'] },
+                { id: 'settings', label: 'Pengaturan', icon: 'settings', roles: ['admin'] }
+            ];
+            nav.innerHTML = items.map(item => {
+                if (item.roles && !item.roles.includes(userRole)) return '';
+                if (item.type === 'divider') return `<div class="pt-6 pb-2 text-[10px] font-black text-slate-600 uppercase tracking-widest px-4">${item.label}</div>`;
+                const active = currentView === item.id;
+                return `
+                    <button onclick="navigate('${item.id}')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group ${active ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/40 translate-x-1' : 'text-slate-400 hover:text-white hover:bg-slate-900'}">
+                        <i data-lucide="${item.icon}" class="w-5 h-5 ${active ? 'text-white' : 'group-hover:text-amber-500'} transition-colors"></i> 
+                        <span class="font-bold text-sm tracking-tight">${item.label}</span>
+                    </button>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        window.navigate = (view) => {
+            if (ROLE_PERMISSIONS[userRole] && !ROLE_PERMISSIONS[userRole].includes(view)) return;
+            currentView = view;
+            const titles = {
+                dashboard: 'Overview Dashboard', inventory: 'Gudang Kayu Log',
+                sales: 'Kasir Penjualan', expenses: 'Pengeluaran Biaya',
+                contacts: 'Manajemen Relasi', reports: 'Laporan Laba Rugi', settings: 'Konfigurasi Sistem'
+            };
+            document.getElementById('view-title').textContent = titles[view] || 'App';
+            renderSidebar();
+            renderView();
+            if (window.innerWidth < 1024) toggleSidebar(false);
         };
 
-        window.submitBatchSales = async () => {
-            const nota = document.getElementById('sales-nota').value, cid = document.getElementById('sales-customer-select').value;
-            if(!nota || !cid) return;
-            const batch = writeBatch(db);
-            let totalVal = 0;
-            tempBatch.forEach(i => {
-                totalVal += i.price;
-                batch.set(doc(collection(db, 'artifacts', appId, 'public', 'data', 'sales')), { ...i, nota, customerId: cid, createdAt: serverTimestamp() });
-                if(i.stockId) batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', i.stockId));
-            });
-            batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'contacts', cid), { balance: increment(totalVal) });
-            batch.set(doc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions')), { type: 'in', amount: totalVal, note: `Penjualan Nota: ${nota}`, createdAt: serverTimestamp() });
-            await batch.commit(); closeModal('sales'); alert("Penjualan Disimpan!");
-        };
-
-        window.submitExpense = async () => {
-            const cat = document.getElementById('exp-cat').value, amt = parseFloat(document.getElementById('exp-amt').value)||0, note = document.getElementById('exp-note').value;
-            if(!amt) return;
-            const batch = writeBatch(db);
-            batch.set(doc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses')), { category: cat, amount: amt, note, createdAt: serverTimestamp() });
-            batch.set(doc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions')), { type: 'out', amount: amt, note: `Beban: ${cat} - ${note}`, createdAt: serverTimestamp() });
-            await batch.commit(); closeModal('expense');
-        };
-
-        window.submitContact = async () => {
-            const type = document.getElementById('contact-type').value, name = document.getElementById('contact-name').value;
-            if(!name) return;
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contacts'), { type, name, balance: 0, createdAt: serverTimestamp() });
-            closeModal('contact');
-        };
-
-        // --- DATA SYNC ---
-        const startSync = () => {
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'inventory'), s => { inventory = s.docs.map(d=>({id:d.id, ...d.data()})); renderInventory(); updateStats(); });
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'sales'), s => { sales = s.docs.map(d=>({id:d.id, ...d.data()})); renderSales(); updateStats(); });
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), s => { expenses = s.docs.map(d=>({id:d.id, ...d.data()})); renderExpenses(); updateStats(); });
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'contacts'), s => { contacts = s.docs.map(d=>({id:d.id, ...d.data()})); renderContacts(); updateSelects(); updateStats(); });
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), s => { transactions = s.docs.map(d=>({id:d.id, ...d.data()})); updateStats(); });
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'users'), s => { users = s.docs.map(d=>({id:d.id, ...d.data()})); renderUsersTable(); });
-        };
-
-        const renderInventory = () => {
-            const grouped = inventory.reduce((a,c)=>{ if(!a[c.nota]) a[c.nota] = { nota:c.nota, sid:c.supplierId, vol:0, prc:0 }; a[c.nota].vol += c.unitVolume; a[c.nota].prc += c.totalPrice; return a; }, {});
-            const tbody = document.getElementById('inventory-table-body');
-            if(tbody) tbody.innerHTML = Object.values(grouped).map(n => `<tr><td class="p-4 font-bold text-blue-600">${n.nota}</td><td class="p-4">${contacts.find(c=>c.id===n.sid)?.name||'-'}</td><td class="p-4 text-center font-black">${n.vol.toFixed(2)}</td><td class="p-4 text-right font-bold">${formatCurrency(n.prc)}</td><td class="p-4 text-right"><button onclick="deleteNota('${n.nota}')" class="text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('');
-            refreshIcons();
-        };
-
-        const renderSales = () => {
-            const grouped = sales.reduce((a,c)=>{ if(!a[c.nota]) a[c.nota] = { nota:c.nota, cid:c.customerId, vol:0, prc:0 }; a[c.nota].vol += c.volume; a[c.nota].prc += c.price; return a; }, {});
-            const tbody = document.getElementById('sales-table-body');
-            if(tbody) tbody.innerHTML = Object.values(grouped).map(n => `<tr><td class="p-4 font-bold text-blue-600">${n.nota}</td><td class="p-4">${contacts.find(c=>c.id===n.cid)?.name||'-'}</td><td class="p-4 text-center font-black">${n.vol.toFixed(2)}</td><td class="p-4 text-right font-bold">${formatCurrency(n.prc)}</td><td class="p-4 text-right">Opsi</td></tr>`).join('');
-        };
-
-        const renderExpenses = () => {
-            const tbody = document.getElementById('expenses-table-body');
-            if(tbody) tbody.innerHTML = expenses.map(e => `<tr><td class="p-4">${e.createdAt?.toDate()?.toLocaleDateString()||'-'}</td><td class="p-4 font-bold text-rose-600">${e.category}</td><td class="p-4 italic">${e.note}</td><td class="p-4 text-right">${formatCurrency(e.amount)}</td><td class="p-4 text-right">Hapus</td></tr>`).join('');
-        };
-
-        const renderContacts = () => {
-            const gen = (c) => `<div class="bg-white p-6 rounded-2xl border shadow-sm">
-                <div class="flex justify-between mb-4"><div class="p-3 bg-slate-100 rounded-xl"><i data-lucide="users" class="w-5 h-5"></i></div><div class="text-right font-black ${c.balance>0?'text-red-500':'text-slate-400'}">${formatCurrency(c.balance)}</div></div>
-                <h4 class="font-bold">${c.name}</h4><p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest">${c.type}</p>
-            </div>`;
-            document.getElementById('suppliers-list').innerHTML = contacts.filter(c=>c.type==='supplier').map(gen).join('');
-            document.getElementById('customers-list').innerHTML = contacts.filter(c=>c.type==='customer').map(gen).join('');
-            refreshIcons();
-        };
-
-        const renderUsersTable = () => {
-            const tb = document.getElementById('users-table-body');
-            if(tb) tb.innerHTML = users.map(u => `<tr><td class="p-4 font-bold">${u.name}</td><td class="p-4 text-xs">${u.email}</td><td class="p-4"><span class="px-2 py-1 rounded text-[10px] font-bold ${u.role==='Admin'?'bg-indigo-600 text-white':'bg-slate-200 text-slate-600'}">${u.role}</span></td><td class="p-4 text-right">${u.id !== auth.currentUser?.uid ? `<button onclick="updateRole('${u.id}','${u.role==='Admin'?'Kasir':'Admin'}')" class="text-indigo-600 text-[10px] font-bold uppercase">Ubah</button>` : '-'}</td></tr>`).join('');
-        };
-
-        const updateStats = () => {
-            const vTot = inventory.reduce((a,c)=>a+(c.unitVolume||0),0);
-            const valStok = inventory.reduce((a,c)=>a+(c.totalPrice||0),0);
-            const hutang = contacts.filter(c=>c.type==='supplier').reduce((a,c)=>a+(c.balance||0),0);
-            const piutang = contacts.filter(c=>c.type==='customer').reduce((a,c)=>a+(c.balance||0),0);
-            const rev = sales.reduce((a,c)=>a+(c.price||0),0);
-            const exp = expenses.reduce((a,c)=>a+(c.amount||0),0);
-            const cin = transactions.filter(t=>t.type==='in').reduce((a,t)=>a+(t.amount||0),0);
-            const cout = transactions.filter(t=>t.type==='out').reduce((a,t)=>a+(t.amount||0),0);
-
-            document.getElementById('stat-total-volume').innerText = `${vTot.toFixed(2)} m³`;
-            document.getElementById('stat-total-price').innerText = formatCurrency(valStok);
-            document.getElementById('stat-total-debt').innerText = formatCurrency(hutang);
-            document.getElementById('stat-total-receivable').innerText = formatCurrency(piutang);
-
-            if(userData?.role === 'Admin') {
-                document.getElementById('report-total-revenue').innerText = formatCurrency(rev);
-                document.getElementById('report-total-cogs').innerText = formatCurrency(valStok);
-                document.getElementById('report-total-expenses').innerText = formatCurrency(exp);
-                document.getElementById('report-net-profit').innerText = formatCurrency(rev - valStok - exp);
-                document.getElementById('report-cash-in').innerText = formatCurrency(cin);
-                document.getElementById('report-cash-out').innerText = formatCurrency(cout);
-                document.getElementById('report-net-cash').innerText = formatCurrency(cin - cout);
+        function renderView() {
+            const container = document.getElementById('view-content');
+            if (!container || !userRole) return;
+            switch (currentView) {
+                case 'dashboard': renderDashboard(container); break;
+                case 'inventory': renderInventory(container); break;
+                case 'sales': renderSales(container); break;
+                case 'expenses': renderExpenses(container); break;
+                case 'contacts': renderContacts(container); break;
+                case 'reports': renderReports(container); break;
+                case 'settings': renderSettings(container); break;
             }
-            document.getElementById('loading').classList.add('hidden');
-        };
+            lucide.createIcons();
+        }
 
-        const updateSelects = () => {
-            const sups = contacts.filter(c=>c.type==='supplier');
-            const custs = contacts.filter(c=>c.type==='customer');
-            document.getElementById('wood-supplier-select').innerHTML = sups.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
-            document.getElementById('sales-customer-select').innerHTML = custs.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
-            document.getElementById('sales-stock-select').innerHTML = '<option value="">-- Manual --</option>' + inventory.map(i=>`<option value="${i.id}">${i.type} (${i.unitVolume.toFixed(2)}) - ${i.nota}</option>`).join('');
-        };
+        // --- DASHBOARD ---
+        function renderDashboard(container) {
+            const totalVol = data.inventory.reduce((acc, curr) => acc + (curr.status === 'stok' ? Number(curr.volNeto) : 0), 0);
+            const assetValue = data.inventory.reduce((acc, curr) => acc + (curr.status === 'stok' ? Number(curr.costPerUnit || 0) * Number(curr.volNeto) : 0), 0);
+            const totalDebt = data.contacts.reduce((acc, curr) => acc + (curr.type === 'Supplier' ? Number(curr.balance || 0) : 0), 0);
+            const totalCredit = data.contacts.reduce((acc, curr) => acc + (curr.type === 'Pelanggan' ? Number(curr.balance || 0) : 0), 0);
+            container.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="p-3 bg-amber-50 rounded-2xl text-amber-600 w-fit mb-4"><i data-lucide="database"></i></div>
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Volume Stok</p>
+                        <h3 class="text-3xl font-black text-slate-800 mt-1">${totalVol.toFixed(3)} <span class="text-sm font-normal text-slate-400 uppercase">m³</span></h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow ${userRole !== 'admin' ? 'hidden' : ''}">
+                        <div class="p-3 bg-emerald-50 rounded-2xl text-emerald-600 w-fit mb-4"><i data-lucide="trending-up"></i></div>
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Nilai Aset Kayu</p>
+                        <h3 class="text-3xl font-black text-slate-800 mt-1">Rp ${assetValue.toLocaleString('id-ID')}</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="p-3 bg-rose-50 rounded-2xl text-rose-600 w-fit mb-4"><i data-lucide="arrow-down-left"></i></div>
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Hutang Supplier</p>
+                        <h3 class="text-3xl font-black text-slate-800 mt-1">Rp ${totalDebt.toLocaleString('id-ID')}</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="p-3 bg-blue-50 rounded-2xl text-blue-600 w-fit mb-4"><i data-lucide="arrow-up-right"></i></div>
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Piutang Pelanggan</p>
+                        <h3 class="text-3xl font-black text-slate-800 mt-1">Rp ${totalCredit.toLocaleString('id-ID')}</h3>
+                    </div>
+                </div>
+            `;
+        }
 
-        window.fillSalesFromStock = () => {
-            const id = document.getElementById('sales-stock-select').value;
-            const item = inventory.find(i=>i.id===id);
-            if(item) {
-                document.getElementById('sales-wood-type').value = item.type;
-                document.getElementById('sales-wood-vol').value = item.unitVolume;
+        // --- INVENTORY ---
+        function renderInventory(container) {
+            container.innerHTML = `
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
+                    <div class="relative w-full md:w-96">
+                        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                        <input type="text" id="inv-search" placeholder="Cari Kode Kayu / Jenis..." class="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition-all shadow-sm" oninput="filterInventory()">
+                    </div>
+                    <button onclick="openInventoryModal()" class="w-full md:w-auto bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-slate-900/10 transition-all font-bold tracking-tight"><i data-lucide="plus-circle" class="w-5 h-5 text-amber-500"></i> BATCH INPUT KAYU</button>
+                </div>
+                <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div class="overflow-x-auto">
+                        <table id="inventory-table" class="w-full text-left text-sm border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50/50 border-b border-slate-100 text-[10px] uppercase font-black text-slate-400 tracking-widest">
+                                    <th class="px-6 py-5">Tgl Masuk</th><th class="px-6 py-5">Barcode</th><th class="px-6 py-5">Jenis</th><th class="px-6 py-5">Ukuran</th><th class="px-6 py-5">Vol Neto</th><th class="px-6 py-5 text-center">Status</th><th class="px-6 py-5"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                ${data.inventory.map(item => `
+                                    <tr class="hover:bg-amber-50/30 transition-colors group">
+                                        <td class="px-6 py-5 text-slate-500">${item.date}</td>
+                                        <td class="px-6 py-5 font-black text-slate-900">${item.barcode}</td>
+                                        <td class="px-6 py-5"><span class="px-3 py-1 bg-slate-100 rounded-lg font-bold text-slate-600 text-[11px] uppercase">${item.woodType}</span></td>
+                                        <td class="px-6 py-5 text-slate-500 font-medium">${item.p}cm/Ø${item.D}cm</td>
+                                        <td class="px-6 py-5 font-black text-slate-900">${item.volNeto} m³</td>
+                                        <td class="px-6 py-5 text-center"><span class="px-3 py-1 rounded-full text-[10px] font-black uppercase ${item.status === 'stok' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200'}">${item.status}</span></td>
+                                        <td class="px-6 py-5 text-right">${userRole === 'admin' ? `<button onclick="deleteLog('${item.id}')" class="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</td>
+                                    </tr>
+                                `).join('') || '<tr><td colspan="7" class="px-6 py-20 text-center"><i data-lucide="inbox" class="w-12 h-12 text-slate-200 mx-auto mb-4"></i><p class="text-slate-400 font-medium italic">Gudang kosong. Segera input kayu log masuk.</p></td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- SALES ---
+        function renderSales(container) {
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-8">
+                    <h3 class="text-2xl font-black text-slate-800 tracking-tight uppercase">Riwayat Penjualan</h3>
+                    <button onclick="openSalesModal()" class="bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-2xl flex items-center gap-3 font-black shadow-xl shadow-amber-900/10 transition-all uppercase tracking-widest text-xs"><i data-lucide="shopping-cart" class="w-5 h-5"></i> Baru</button>
+                </div>
+                <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-50 border-b text-[10px] uppercase text-slate-500 tracking-widest font-black">
+                            <tr><th class="px-6 py-5">Tgl</th><th class="px-6 py-5">No. Inv</th><th class="px-6 py-5">Pelanggan</th><th class="px-6 py-5 text-right">Vol</th><th class="px-6 py-5 text-right">Total</th><th class="px-6 py-5"></th></tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            ${data.sales.map(s => `
+                                <tr class="hover:bg-slate-50/80 transition-colors">
+                                    <td class="px-6 py-5 text-slate-500">${s.date}</td><td class="px-6 py-5 font-mono font-black text-slate-700">${s.invNo}</td><td class="px-6 py-5 font-bold text-slate-900">${s.customerName}</td><td class="px-6 py-5 text-right font-bold text-slate-600">${s.totalVol}</td><td class="px-6 py-5 text-right font-black text-emerald-600">Rp ${Number(s.totalAmount).toLocaleString('id-ID')}</td>
+                                    <td class="px-6 py-5 text-right flex justify-end gap-2">
+                                        <button onclick="printInvoice('${s.id}')" class="p-3 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl"><i data-lucide="printer" class="w-4 h-4"></i></button>
+                                        ${userRole === 'admin' ? `<button onclick="deleteSale('${s.id}')" class="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+                                    </td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="6" class="px-6 py-20 text-center text-slate-400 font-bold italic tracking-wider uppercase opacity-30">Belum Ada Transaksi</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        // --- BIAYA ---
+        function renderExpenses(container) {
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-8">
+                    <h3 class="text-2xl font-black text-slate-800 tracking-tight uppercase">BIAYA OPERASIONAL</h3>
+                    <button onclick="openExpenseModal()" class="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 rounded-2xl flex items-center gap-3 font-black shadow-xl transition-all uppercase tracking-widest text-xs"><i data-lucide="plus" class="w-5 h-5"></i> Catat</button>
+                </div>
+                <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-50 border-b text-[10px] uppercase text-slate-500 tracking-widest font-black">
+                            <tr><th class="px-6 py-5">Tgl</th><th class="px-6 py-5">Kategori</th><th class="px-6 py-5 text-right">Nominal</th><th class="px-6 py-5"></th></tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            ${data.expenses.map(e => `
+                                <tr>
+                                    <td class="px-6 py-5 text-slate-500">${e.date}</td><td class="px-6 py-5"><span class="bg-slate-100 px-3 py-1 rounded-lg text-[10px] font-black uppercase text-slate-600">${e.category}</span></td>
+                                    <td class="px-6 py-5 text-right font-black text-rose-600 tracking-tight">Rp ${Number(e.amount).toLocaleString('id-ID')}</td>
+                                    <td class="px-6 py-5 text-right">${userRole === 'admin' ? `<button onclick="deleteDocById('expenses', '${e.id}')" class="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="4" class="px-6 py-20 text-center text-slate-400 italic font-medium uppercase tracking-widest opacity-30">Tidak Ada Catatan</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        // --- KONTAK ---
+        function renderContacts(container) {
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-8">
+                    <h3 class="text-2xl font-black text-slate-800 tracking-tight uppercase">MANAJEMEN RELASI</h3>
+                    <button onclick="openContactModal()" class="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 rounded-2xl flex items-center gap-3 font-black shadow-xl transition-all uppercase tracking-widest text-xs"><i data-lucide="user-plus" class="w-5 h-5"></i> Tambah</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${data.contacts.map(c => `
+                        <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative group hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${c.type === 'Supplier' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-blue-50 text-blue-600 border-blue-100'}">${c.type}</span>
+                            <h4 class="font-black text-slate-800 text-xl mt-4 tracking-tight">${c.name}</h4>
+                            <p class="text-xs text-slate-400 font-bold mb-6">${c.phone}</p>
+                            <div class="pt-6 border-t border-slate-100 flex justify-between items-center">
+                                <p class="text-[10px] text-slate-400 uppercase font-black tracking-widest">${c.type === 'Supplier' ? 'Hutang' : 'Piutang'}</p>
+                                <p class="font-black text-slate-900 text-lg">Rp ${Number(c.balance || 0).toLocaleString('id-ID')}</p>
+                            </div>
+                            ${userRole === 'admin' ? `<button onclick="deleteDocById('contacts', '${c.id}')" class="absolute top-6 right-6 text-slate-200 hover:text-rose-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+                        </div>
+                    `).join('') || '<p class="col-span-full py-20 text-center text-slate-400 font-bold uppercase tracking-widest opacity-30">Belum Ada Kontak</p>'}
+                </div>
+            `;
+        }
+
+        // --- LAPORAN ---
+        function renderReports(container) {
+            const revenue = data.sales.reduce((acc, s) => acc + Number(s.totalAmount), 0);
+            const cogs = data.inventory.filter(i => i.status === 'terjual').reduce((acc, i) => acc + (Number(i.costPerUnit || 0) * Number(i.volNeto)), 0);
+            const opex = data.expenses.reduce((acc, e) => acc + Number(e.amount), 0);
+            const profit = revenue - cogs - opex;
+            container.innerHTML = `
+                <div class="max-w-3xl mx-auto">
+                    <div class="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-xl">
+                        <h3 class="text-3xl font-black text-center mb-12 border-b border-slate-100 pb-8 tracking-tighter uppercase">Laporan Laba Rugi</h3>
+                        <div class="space-y-6">
+                            <div class="flex justify-between font-bold text-lg"><span class="text-slate-400 uppercase tracking-widest text-xs mt-1">Total Penjualan</span><span class="text-slate-900 font-black">Rp ${revenue.toLocaleString('id-ID')}</span></div>
+                            <div class="flex justify-between text-slate-400 italic ml-4 text-sm"><span>HPP (COGS)</span><span>(Rp ${cogs.toLocaleString('id-ID')})</span></div>
+                            <div class="flex justify-between border-t border-slate-100 pt-6 font-black text-slate-800 uppercase tracking-tighter text-xl"><span>Laba Kotor</span><span>Rp ${(revenue - cogs).toLocaleString('id-ID')}</span></div>
+                            <div class="flex justify-between text-rose-500 font-bold pt-4 text-sm uppercase tracking-widest"><span>Biaya Operasional</span><span>(Rp ${opex.toLocaleString('id-ID')})</span></div>
+                            <div class="flex justify-between items-center bg-slate-950 text-white p-8 rounded-[2rem] mt-12 shadow-2xl shadow-slate-950/20">
+                                <span class="text-sm font-black uppercase tracking-[0.2em] text-slate-500">Hasil Laba Bersih</span>
+                                <span class="text-3xl font-black text-amber-500 tracking-tight">Rp ${profit.toLocaleString('id-ID')}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- PENGATURAN ---
+        function renderSettings(container) {
+            container.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm h-fit">
+                        <h3 class="text-xl font-black mb-8 flex items-center gap-3 uppercase tracking-tighter"><i data-lucide="building-2" class="text-amber-500"></i> Profil Bisnis</h3>
+                        <form onsubmit="saveSettings(event)" class="space-y-6">
+                            <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nama Perusahaan</label><input type="text" name="companyName" value="${data.settings.companyName || ''}" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none"></div>
+                            <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Alamat Kantor</label><textarea name="address" rows="3" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none">${data.settings.address || ''}</textarea></div>
+                            <div class="pt-6 border-t border-slate-50"><button type="submit" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-slate-800 transition-all">Update Profil</button></div>
+                        </form>
+                    </div>
+                    <div class="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm h-fit">
+                        <h3 class="text-xl font-black mb-8 flex items-center gap-3 uppercase tracking-tighter text-rose-600"><i data-lucide="shield-check"></i> Keamanan PIN</h3>
+                        <form onsubmit="saveSecurity(event)" class="space-y-6">
+                            <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Ganti PIN Admin</label>
+                                <input type="password" maxlength="4" name="adminPin" value="${securityConfig?.adminPin || ''}" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-black text-center text-2xl tracking-[1em] focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none">
+                            </div>
+                            <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Ganti PIN Kasir</label>
+                                <input type="password" maxlength="4" name="kasirPin" value="${securityConfig?.kasirPin || ''}" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-black text-center text-2xl tracking-[1em] focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none">
+                            </div>
+                            <div class="pt-6 border-t border-slate-50"><button type="submit" class="w-full bg-rose-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-rose-500 transition-all">Kunci PIN Baru</button></div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.saveSecurity = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const adminPin = formData.get('adminPin');
+            const kasirPin = formData.get('kasirPin');
+            if (adminPin.length !== 4 || kasirPin.length !== 4) {
+                showToast("PIN harus 4 angka!", "error");
+                return;
             }
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'security', 'config'), { adminPin, kasirPin });
+                showToast("PIN Berhasil Diperbarui.");
+            } catch (err) { showToast("Gagal menyimpan.", "error"); }
         };
 
-        window.updateRole = async (uid, r) => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', uid), { role: r }); };
+        window.saveSettings = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const settings = Object.fromEntries(formData.entries());
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general'), settings);
+                showToast("Pengaturan Disimpan.");
+            } catch (err) { showToast("Gagal.", "error"); }
+        };
 
-        refreshIcons();
+        // --- LOGIKA VOLUME & MODAL ---
+        window.calculateVolume = (params) => {
+            const { p, d1, d2, d3, d4, trim, gr } = params;
+            const D = (Number(d1) + Number(d2) + Number(d3) + Number(d4)) / 4;
+            const effectiveP = Number(p) - Number(trim);
+            const volBruto = (0.7854 * Math.pow(D, 2) * effectiveP) / 1000000;
+            const volGR = (0.7854 * Math.pow(Number(gr), 2) * Number(p)) / 1000000;
+            const volNeto = volBruto - volGR;
+            return { D: D.toFixed(2), volNeto: Math.max(0, volNeto).toFixed(4) };
+        };
+
+        window.closeModal = () => {
+            const modal = document.getElementById('modal-container');
+            const content = document.getElementById('modal-content');
+            modal.style.opacity = '0'; modal.style.pointerEvents = 'none';
+            content.classList.add('scale-95');
+        };
+
+        window.toggleSidebar = (state) => {
+            const sidebar = document.getElementById('sidebar');
+            if (state === undefined) sidebar.classList.toggle('-translate-x-full');
+            else if (state) sidebar.classList.remove('-translate-x-full');
+            else sidebar.classList.add('-translate-x-full');
+        };
+
+        window.showToast = (msg, type = 'success') => {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-8 right-8 px-8 py-4 rounded-2xl shadow-2xl text-white font-black uppercase tracking-widest text-[10px] z-[110] transition-all transform translate-y-20 border-b-4 ${type === 'success' ? 'bg-emerald-600 border-emerald-800' : 'bg-rose-600 border-rose-800'}`;
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-20'), 100);
+            setTimeout(() => { toast.classList.add('translate-y-20'); setTimeout(() => toast.remove(), 500); }, 3500);
+        };
+
+        window.deleteLog = async (id) => { if(confirm("Hapus data kayu?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id)); };
+        window.deleteSale = async (id) => { if(confirm("Hapus transaksi?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sales', id)); };
+        window.deleteDocById = async (col, id) => { if(confirm("Hapus item?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', col, id)); };
+
+        // --- BOOTSTRAP ---
+        window.onload = () => {
+            initAuth();
+            lucide.createIcons();
+        };
     </script>
 </body>
 </html>
