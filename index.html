@@ -2,923 +2,998 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kayu Log Management System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wood-IT | Sistem Pengelolaan Kayu Log</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Library untuk Ekspor -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+
         @media print {
             .no-print { display: none !important; }
             .print-only { display: block !important; }
             body { background: white; }
         }
-        .print-only { display: none; }
-        .role-badge { @apply px-2 py-0.5 rounded-full text-[10px] font-bold uppercase; }
-        
-        /* Animasi Pin Entry */
-        .pin-dot { @apply w-5 h-5 rounded-full border-2 border-slate-600 transition-all duration-200 bg-transparent; }
-        .pin-dot.active { @apply bg-amber-500 border-amber-500 scale-125 shadow-[0_0_15px_rgba(245,158,11,0.6)]; }
-        
-        .shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
-        @keyframes shake {
-            10%, 90% { transform: translate3d(-1px, 0, 0); }
-            20%, 80% { transform: translate3d(2px, 0, 0); }
-            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-            40%, 60% { transform: translate3d(4px, 0, 0); }
+
+        #toast-container { position: fixed; top: 1rem; right: 1rem; left: 1rem; z-index: 10000; pointer-events: none; }
+        @media (min-width: 768px) { #toast-container { left: auto; width: 320px; } }
+        .toast { animation: slideIn 0.3s ease-out forwards; pointer-events: auto; }
+        @keyframes slideIn {
+            from { transform: translateY(-1rem); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
+
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900">
-    <!-- Layar Kunci PIN -->
-    <div id="lock-screen" class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center transition-all duration-500">
-        <div class="max-w-xs w-full text-center px-6" id="pin-container">
-            <div class="mb-8 inline-flex p-5 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl">
-                <i data-lucide="shield-check" class="w-10 h-10 text-amber-500"></i>
-            </div>
-            <h2 class="text-2xl font-bold text-white mb-2 tracking-tight">Akses Sistem</h2>
-            <p class="text-slate-500 text-sm mb-8">Masukkan 4 digit PIN keamanan</p>
-            
-            <div id="pin-dots" class="flex justify-center gap-6 mb-12">
-                <div class="pin-dot"></div>
-                <div class="pin-dot"></div>
-                <div class="pin-dot"></div>
-                <div class="pin-dot"></div>
-            </div>
+<body class="bg-slate-50 min-h-screen pb-20 md:pb-0 flex flex-col md:flex-row">
 
-            <!-- Keypad Numerik Statis -->
-            <div class="grid grid-cols-3 gap-3">
-                <button onclick="inputPin(1)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">1</button>
-                <button onclick="inputPin(2)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">2</button>
-                <button onclick="inputPin(3)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">3</button>
-                <button onclick="inputPin(4)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">4</button>
-                <button onclick="inputPin(5)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">5</button>
-                <button onclick="inputPin(6)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">6</button>
-                <button onclick="inputPin(7)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">7</button>
-                <button onclick="inputPin(8)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">8</button>
-                <button onclick="inputPin(9)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">9</button>
-                <button onclick="clearPin()" class="h-16 rounded-2xl bg-slate-900 text-slate-400 text-xs font-bold hover:bg-rose-900/20 hover:text-rose-500 active:scale-90 transition-all border border-slate-800/50 uppercase tracking-tighter">Hapus</button>
-                <button onclick="inputPin(0)" class="h-16 rounded-2xl bg-slate-900 text-white text-2xl font-semibold hover:bg-slate-800 active:bg-slate-700 active:scale-90 transition-all border border-slate-800/50">0</button>
-                <button onclick="validatePin()" class="h-16 rounded-2xl bg-amber-600 text-white text-lg font-bold hover:bg-amber-500 active:bg-amber-700 active:scale-90 transition-all shadow-lg shadow-amber-900/20 uppercase tracking-widest">OK</button>
+    <div id="toast-container"></div>
+
+    <!-- Sidebar (Desktop) -->
+    <aside id="sidebar" class="flex w-64 bg-slate-900 text-white p-6 flex-col space-y-8 no-print shrink-0 sticky top-0 h-screen">
+        <div class="flex items-center space-x-3 px-2">
+            <div class="bg-amber-600 p-2 rounded-lg"><i data-lucide="package" class="w-6 h-6"></i></div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight" id="sidebar-company-name">Wood-IT Log</h1>
+                <p class="text-[10px] text-amber-500 font-bold uppercase tracking-widest">Management System</p>
             </div>
-            <p id="pin-error" class="mt-8 text-rose-500 text-sm font-semibold tracking-wide opacity-0 transition-opacity">PIN Salah. Silakan coba lagi.</p>
+        </div>
+
+        <nav class="flex-1 space-y-1 overflow-y-auto" id="main-nav">
+            <button onclick="switchView('dashboard')" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-dashboard">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                <span>Dashboard</span>
+            </button>
+            <button onclick="switchView('inventory')" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-inventory">
+                <i data-lucide="database" class="w-5 h-5"></i>
+                <span>Stok Log</span>
+            </button>
+            <button onclick="switchView('sales')" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-sales">
+                <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+                <span>Kayu Keluar</span>
+            </button>
+            <button onclick="switchView('expenses')" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-expenses">
+                <i data-lucide="receipt" class="w-5 h-5"></i>
+                <span>Biaya & Beban</span>
+            </button>
+            
+            <div class="pt-4 pb-2 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Keuangan</div>
+            <button onclick="switchView('reports')" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-reports">
+                <i data-lucide="pie-chart" class="w-5 h-5"></i>
+                <span>Laporan</span>
+            </button>
+            
+            <div class="pt-4 pb-2 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sistem</div>
+            <button onclick="switchView('suppliers')" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-suppliers">
+                <i data-lucide="truck" class="w-5 h-5"></i>
+                <span>Supplier</span>
+            </button>
+            <button onclick="switchView('customers')" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-customers">
+                <i data-lucide="users" class="w-5 h-5"></i>
+                <span>Pelanggan</span>
+            </button>
+            
+            <button onclick="switchView('settings')" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition hover:bg-white/10" id="nav-settings">
+                <i data-lucide="settings" class="w-5 h-5"></i>
+                <span>Pengaturan</span>
+            </button>
+        </nav>
+
+        <div class="pt-6 border-t border-white/10">
+            <div class="text-xs font-bold text-slate-300 px-2 truncate mb-1 uppercase tracking-tighter">Mode Administrator</div>
+            <div class="text-[9px] font-bold uppercase tracking-tighter px-2 py-0.5 rounded bg-amber-600/20 text-amber-500 mb-4 inline-block">Online</div>
+        </div>
+    </aside>
+
+    <!-- Bottom Nav (Mobile) -->
+    <nav id="bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 text-white flex justify-around items-center p-2 z-[60] no-print border-t border-white/5 pb-safe">
+        <button onclick="switchView('dashboard')" class="flex flex-col items-center p-2 text-slate-400" id="mob-nav-dashboard">
+            <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+            <span class="text-[9px] mt-1">Home</span>
+        </button>
+        <button onclick="switchView('inventory')" class="flex flex-col items-center p-2 text-slate-400" id="mob-nav-inventory">
+            <i data-lucide="database" class="w-5 h-5"></i>
+            <span class="text-[9px] mt-1">Stok</span>
+        </button>
+        <button onclick="switchView('sales')" class="flex flex-col items-center p-2 text-slate-400" id="mob-nav-sales">
+            <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+            <span class="text-[9px] mt-1">Jual</span>
+        </button>
+        <button onclick="switchView('expenses')" class="flex flex-col items-center p-2 text-slate-400" id="mob-nav-expenses">
+            <i data-lucide="receipt" class="w-5 h-5"></i>
+            <span class="text-[9px] mt-1">Biaya</span>
+        </button>
+        <button onclick="toggleMobileExtra()" class="flex flex-col items-center p-2 text-slate-400">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+            <span class="text-[9px] mt-1">Lainnya</span>
+        </button>
+    </nav>
+
+    <!-- Mobile Extra Menu Overlay -->
+    <div id="mobile-extra-menu" class="fixed inset-0 bg-slate-900/95 z-[70] hidden flex flex-col p-8 no-print transition-all duration-300">
+        <div class="flex justify-between items-center mb-8">
+            <h3 class="text-amber-500 font-bold uppercase tracking-widest text-sm">Menu Tambahan</h3>
+            <button onclick="toggleMobileExtra()" class="text-white"><i data-lucide="x" class="w-8 h-8"></i></button>
+        </div>
+        <div class="space-y-6">
+            <button onclick="switchView('reports'); toggleMobileExtra()" class="w-full flex items-center space-x-4 text-white text-lg"><i data-lucide="pie-chart" class="w-6 h-6 text-blue-400"></i> <span>Laporan Keuangan</span></button>
+            <button onclick="switchView('suppliers'); toggleMobileExtra()" class="w-full flex items-center space-x-4 text-white text-lg"><i data-lucide="truck" class="w-6 h-6 text-slate-400"></i> <span>Data Supplier</span></button>
+            <button onclick="switchView('customers'); toggleMobileExtra()" class="w-full flex items-center space-x-4 text-white text-lg"><i data-lucide="users" class="w-6 h-6 text-slate-400"></i> <span>Data Pelanggan</span></button>
+            <button onclick="switchView('settings'); toggleMobileExtra()" class="w-full flex items-center space-x-4 text-white text-lg"><i data-lucide="settings" class="w-6 h-6 text-slate-400"></i> <span>Pengaturan Sistem</span></button>
         </div>
     </div>
 
-    <div id="app" class="flex min-h-screen overflow-hidden opacity-0 transition-all duration-700 scale-[0.98]">
-        <!-- Sidebar -->
-        <aside id="sidebar" class="no-print w-64 bg-slate-950 text-white flex-shrink-0 flex flex-col transition-all duration-300 lg:translate-x-0 -translate-x-full fixed lg:relative z-50 h-full border-r border-slate-900">
-            <div class="p-6 flex items-center gap-3 border-b border-slate-900">
-                <div class="w-8 h-8 bg-amber-600 rounded-lg flex items-center justify-center shadow-lg shadow-amber-900/20">
-                    <i data-lucide="trees" class="w-5 h-5 text-white"></i>
-                </div>
-                <h1 class="font-bold text-lg tracking-tight text-white">KAYU LOG MS</h1>
-            </div>
-            <nav id="nav-menu" class="flex-1 overflow-y-auto p-4 space-y-1 no-scrollbar"></nav>
-            <div class="p-4 border-t border-slate-900 bg-slate-950/50">
-                <div id="user-info" class="flex items-center gap-3 px-2">
-                    <div id="user-avatar" class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-xs font-bold border border-slate-700 text-amber-500">?</div>
-                    <div class="flex-1 overflow-hidden">
-                        <p class="text-sm font-semibold truncate text-slate-200" id="user-id-display">Memuat...</p>
-                        <p class="text-[10px] text-amber-500 font-black uppercase tracking-widest" id="user-role-display">Guest</p>
-                    </div>
-                </div>
-                <button onclick="lockApp()" class="mt-4 w-full flex items-center gap-2 px-3 py-2.5 text-xs text-slate-500 hover:text-white hover:bg-slate-900 rounded-xl transition-all border border-transparent hover:border-slate-800">
-                    <i data-lucide="lock" class="w-4 h-4"></i> Kunci Aplikasi
-                </button>
-            </div>
-        </aside>
+    <!-- Main Content -->
+    <main class="flex-1 p-4 md:p-10 overflow-y-auto w-full">
+        <div id="loading" class="fixed inset-0 bg-white/80 z-[100] flex items-center justify-center no-print">
+            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-600"></div>
+        </div>
 
-        <!-- Main Content -->
-        <main class="flex-1 flex flex-col min-w-0 bg-slate-50 relative overflow-y-auto h-screen">
-            <header class="no-print sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <button onclick="toggleSidebar()" class="lg:hidden p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                        <i data-lucide="menu" class="w-6 h-6 text-slate-600"></i>
-                    </button>
-                    <h2 id="view-title" class="text-xl font-bold text-slate-800 tracking-tight">Dashboard</h2>
+        <!-- Dashboard -->
+        <section id="view-dashboard" class="space-y-6 md:space-y-8 no-print">
+            <header class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-800" id="welcome-title">Operasional Log</h2>
+                    <p class="text-xs md:text-sm text-slate-500">Sistem manajemen stok & keuangan.</p>
                 </div>
-                <div class="flex items-center gap-3">
-                    <span id="sync-status" class="flex items-center gap-1.5 text-[10px] text-emerald-600 font-bold bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 uppercase tracking-wider">
-                        <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Online
-                    </span>
+                <div class="md:hidden p-2 bg-amber-100 text-amber-600 rounded-lg"><i data-lucide="package" class="w-5 h-5"></i></div>
+            </header>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center md:block">
+                    <div class="p-3 bg-amber-100 text-amber-600 rounded-xl md:mb-4 mr-4 md:mr-0"><i data-lucide="boxes" class="w-5 h-5"></i></div>
+                    <div><h3 class="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-wider">Volume Stok</h3><p class="text-lg md:text-2xl font-black text-slate-900" id="stat-total-volume">0.00 m³</p></div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center md:block">
+                    <div class="p-3 bg-green-100 text-green-600 rounded-xl md:mb-4 mr-4 md:mr-0"><i data-lucide="wallet" class="w-5 h-5"></i></div>
+                    <div><h3 class="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-wider">Nilai Stok</h3><p class="text-lg md:text-2xl font-black text-slate-900" id="stat-total-price">Rp 0</p></div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center md:block">
+                    <div class="p-3 bg-red-100 text-red-600 rounded-xl md:mb-4 mr-4 md:mr-0"><i data-lucide="arrow-up-right" class="w-5 h-5"></i></div>
+                    <div><h3 class="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-wider">Total Hutang</h3><p class="text-lg md:text-2xl font-black text-red-600" id="stat-total-debt">Rp 0</p></div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center md:block">
+                    <div class="p-3 bg-blue-100 text-blue-600 rounded-xl md:mb-4 mr-4 md:mr-0"><i data-lucide="arrow-down-left" class="w-5 h-5"></i></div>
+                    <div><h3 class="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-wider">Total Piutang</h3><p class="text-lg md:text-2xl font-black text-blue-600" id="stat-total-receivable">Rp 0</p></div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 overflow-hidden">
+                <h3 class="font-bold text-slate-800 mb-4 flex items-center space-x-2"><i data-lucide="activity" class="w-4 h-4 text-amber-600"></i> <span>Aktivitas Kas Terbaru</span></h3>
+                <div id="recent-logs" class="space-y-4 text-xs md:text-sm">
+                    <p class="italic text-slate-400">Belum ada aktivitas tercatat.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Laporan Keuangan -->
+        <section id="view-reports" class="hidden space-y-6 md:space-y-8 no-print">
+            <header class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div><h2 class="text-xl md:text-2xl font-bold text-slate-800">Laporan Keuangan</h2><p class="text-xs text-slate-500">Arus kas & Laba rugi.</p></div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="exportToExcel()" class="flex items-center justify-center space-x-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold"><i data-lucide="file-spreadsheet" class="w-4 h-4"></i> <span>Excel</span></button>
+                    <button onclick="exportToPDF()" class="flex items-center justify-center space-x-2 bg-rose-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold"><i data-lucide="file-text" class="w-4 h-4"></i> <span>PDF</span></button>
                 </div>
             </header>
-            <div id="view-content" class="p-6"></div>
-        </main>
+            <div id="report-content-to-export" class="space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 md:p-8 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                        <h3 class="font-bold text-slate-800 text-sm">Laba Rugi (Estimasi)</h3>
+                        <div class="space-y-3 text-xs md:text-sm divide-y divide-slate-50">
+                            <div class="flex justify-between py-2"><span>Penjualan</span><span class="font-bold text-slate-900" id="report-total-revenue">Rp 0</span></div>
+                            <div class="flex justify-between py-2"><span>Pembelian</span><span class="font-bold text-red-500" id="report-total-cogs">Rp 0</span></div>
+                            <div class="flex justify-between py-2"><span>Biaya</span><span class="font-bold text-red-400" id="report-total-expenses">Rp 0</span></div>
+                            <div class="flex justify-between py-3 border-t-2 border-slate-50 font-black text-sm uppercase"><span>Profit Neto</span><span id="report-gross-profit-accrual">Rp 0</span></div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 md:p-8 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                        <h3 class="font-bold text-slate-800 text-sm">Arus Kas Realtime</h3>
+                        <div class="space-y-3 text-xs md:text-sm divide-y divide-slate-50">
+                            <div class="flex justify-between py-2"><span>Pemasukan</span><span class="font-bold text-green-600" id="report-cash-in">Rp 0</span></div>
+                            <div class="flex justify-between py-2"><span>Pengeluaran</span><span class="font-bold text-orange-600" id="report-cash-out">Rp 0</span></div>
+                            <div class="flex justify-between py-3 border-t-2 border-slate-50 font-black text-sm uppercase"><span>Saldo Kas</span><span class="text-blue-700" id="report-net-cash">Rp 0</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div class="overflow-x-auto"><table class="w-full text-left text-xs md:text-sm min-w-[500px]"><thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-bold"><tr><th class="px-6 py-4">Waktu</th><th class="px-6 py-4">Keterangan</th><th class="px-6 py-4">Tipe</th><th class="px-6 py-4 text-right">Nominal</th></tr></thead><tbody id="cashflow-table-body" class="divide-y divide-slate-100"></tbody></table></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stok Log -->
+        <section id="view-inventory" class="hidden space-y-6 no-print">
+            <header class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div><h2 class="text-xl md:text-2xl font-bold text-slate-800">Inventaris Stok</h2><p class="text-xs text-slate-500">Kayu log yang tersedia di gudang.</p></div>
+                <div class="grid grid-cols-2 md:flex gap-2">
+                    <button onclick="exportInventoryToExcel()" class="bg-slate-100 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200">Excel</button>
+                    <button onclick="openModal('wood')" class="bg-amber-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-lg">Input Nota Baru</button>
+                </div>
+            </header>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs md:text-sm min-w-[700px]">
+                        <thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-bold"><tr><th class="px-5 py-4">No. Nota</th><th class="px-5 py-4">Supplier</th><th class="px-5 py-4 text-center">Status</th><th class="px-5 py-4 text-center">Volume (m³)</th><th class="px-5 py-4 text-right">Nilai (IDR)</th><th class="px-5 py-4 text-right no-print">Aksi</th></tr></thead>
+                        <tbody id="inventory-table-body" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Kayu Keluar -->
+        <section id="view-sales" class="hidden space-y-6 no-print">
+            <header class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div><h2 class="text-xl md:text-2xl font-bold text-slate-800">Kayu Keluar</h2><p class="text-xs text-slate-500">Catatan pengiriman kayu log.</p></div>
+                <button onclick="openModal('sales')" class="w-full md:w-auto bg-blue-600 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg">Input Pengiriman</button>
+            </header>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs md:text-sm min-w-[700px]">
+                        <thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-bold"><tr><th class="px-5 py-4">Nota / SJ</th><th class="px-5 py-4">Pelanggan</th><th class="px-5 py-4 text-center">Status</th><th class="px-5 py-4 text-center">Vol (m³)</th><th class="px-5 py-4 text-right">Total</th><th class="px-5 py-4 text-right">Aksi</th></tr></thead>
+                        <tbody id="sales-table-body" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Biaya & Beban -->
+        <section id="view-expenses" class="hidden space-y-6 no-print">
+            <header class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div><h2 class="text-xl md:text-2xl font-bold text-slate-800">Pengeluaran Biaya</h2><p class="text-xs text-slate-500">Operasional bisnis harian.</p></div>
+                <button onclick="openModal('expense')" class="w-full md:w-auto bg-rose-500 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg">Input Biaya</button>
+            </header>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs md:text-sm min-w-[500px]">
+                        <thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-bold"><tr><th class="px-5 py-4">Tanggal</th><th class="px-5 py-4">Kategori</th><th class="px-5 py-4">Ket</th><th class="px-5 py-4 text-right">Nominal</th><th class="px-5 py-4 text-right">Aksi</th></tr></thead>
+                        <tbody id="expenses-table-body" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Supplier & Pelanggan -->
+        <section id="view-suppliers" class="hidden space-y-6 no-print">
+            <header class="flex items-center justify-between"><h2 class="text-xl md:text-2xl font-bold text-slate-800">Database Supplier</h2><button onclick="openModal('contact', 'supplier')" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold">Tambah Supplier</button></header>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6" id="suppliers-list"></div>
+        </section>
+        <section id="view-customers" class="hidden space-y-6 no-print">
+            <header class="flex items-center justify-between"><h2 class="text-xl md:text-2xl font-bold text-slate-800">Database Pelanggan</h2><button onclick="openModal('contact', 'customer')" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold">Tambah Pelanggan</button></header>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6" id="customers-list"></div>
+        </section>
+
+        <!-- Pengaturan -->
+        <section id="view-settings" class="hidden space-y-6 no-print">
+            <header><h2 class="text-xl md:text-2xl font-bold text-slate-800">Konfigurasi Sistem</h2></header>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-10">
+                <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                    <h3 class="font-bold text-slate-800 text-sm">Profil Bisnis</h3>
+                    <div class="space-y-4">
+                        <div class="space-y-1"><label class="text-[10px] font-bold uppercase text-slate-400">Nama Bisnis</label><input type="text" id="setting-company-name" class="w-full p-3 rounded-xl border text-sm outline-none"></div>
+                        <div class="space-y-1"><label class="text-[10px] font-bold uppercase text-slate-400">Alamat</label><textarea id="setting-company-address" rows="2" class="w-full p-3 rounded-xl border text-sm outline-none"></textarea></div>
+                        <div class="space-y-1"><label class="text-[10px] font-bold uppercase text-slate-400">Telepon</label><input type="text" id="setting-company-phone" class="w-full p-3 rounded-xl border text-sm outline-none"></div>
+                        <button onclick="saveCompanyProfile()" class="w-full py-3 bg-amber-600 text-white font-bold rounded-xl text-sm">Simpan Profil</button>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                    <h3 class="font-bold text-slate-800 text-sm text-rose-600 uppercase">Manajemen Data</h3>
+                    <div class="space-y-3">
+                        <button onclick="handleBackupDatabase()" class="w-full flex items-center justify-center space-x-2 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm uppercase"><i data-lucide="download" class="w-4 h-4"></i> <span>Download Backup (JSON)</span></button>
+                        
+                        <input type="file" id="restore-db-input" class="hidden" accept=".json" onchange="handleRestoreDatabase(event)">
+                        <button onclick="document.getElementById('restore-db-input').click()" class="w-full flex items-center justify-center space-x-2 py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm uppercase"><i data-lucide="upload" class="w-4 h-4"></i> <span>Pulihkan Data (Restore)</span></button>
+                        
+                        <div class="pt-4 border-t border-slate-100">
+                            <button onclick="handleResetDatabase()" class="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold text-sm border border-red-100 hover:bg-red-600 hover:text-white transition uppercase">Hapus Semua Data Permanen</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal Kayu Masuk -->
+    <div id="wood-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-2 md:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto no-print">
+        <div class="bg-white w-full max-w-4xl rounded-3xl shadow-2xl flex flex-col max-h-[95vh] overflow-hidden my-auto">
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                <h3 id="wood-modal-title" class="font-bold text-slate-800 uppercase tracking-tight text-sm">Input Nota Log Baru</h3>
+                <button onclick="closeModal('wood')" class="text-slate-400"><i data-lucide="x" class="w-6 h-6"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl">
+                    <div class="space-y-1"><label class="text-[9px] font-bold uppercase text-slate-400 ml-1">No. Nota</label><input type="text" id="wood-nota" placeholder="INV-001" class="w-full p-3 rounded-xl border text-sm outline-none"></div>
+                    <div class="space-y-1"><label class="text-[9px] font-bold uppercase text-slate-400 ml-1">Supplier</label><select id="wood-supplier-select" class="w-full p-3 rounded-xl border text-sm outline-none"></select></div>
+                    <div class="space-y-1"><label class="text-[9px] font-bold uppercase text-slate-400 ml-1">Total Harga Batch</label><input type="number" id="wood-total-nota-price" class="w-full p-3 rounded-xl border text-sm font-bold text-amber-700 outline-none"></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 bg-amber-50 p-4 rounded-2xl border border-amber-100">
+                    <select id="wood-payment-status" onchange="toggleDPInput('wood')" class="p-3 rounded-xl border text-sm outline-none"><option value="Hutang">Hutang</option><option value="Lunas">Lunas</option><option value="DP">DP</option></select>
+                    <input type="number" id="wood-dp-amount" placeholder="Nominal DP" class="hidden p-3 rounded-xl border text-sm outline-none bg-white">
+                </div>
+                <div class="border-2 border-dashed border-slate-200 rounded-2xl p-4 md:p-6 space-y-4">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="space-y-1"><label class="text-[9px] font-bold uppercase text-slate-400 ml-1">Jenis Kayu</label><input type="text" id="wood-type" class="w-full p-3 rounded-xl border text-sm" placeholder="Jati"></div>
+                        <div class="space-y-1"><label class="text-[9px] font-bold uppercase text-slate-400 ml-1">Panjang (cm)</label><input type="number" id="log-p" oninput="liveUpdateCalc()" class="w-full p-3 rounded-xl border text-sm" placeholder="200"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="space-y-1"><label class="text-[9px] font-bold uppercase text-slate-400 ml-1">No LOG</label><input type="text" id="log-no" class="w-full p-3 rounded-xl border text-sm" placeholder="Tag"></div>
+                        <div class="space-y-1"><label class="text-[9px] font-bold uppercase text-slate-400 ml-1">Grade</label><input type="text" id="log-grade" class="w-full p-3 rounded-xl border text-sm" placeholder="A1"></div>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-bold uppercase text-slate-400 ml-1 text-center block">Diameter d1 - d4 (cm)</label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <input type="number" step="0.1" id="log-d1" oninput="liveUpdateCalc()" class="p-2.5 rounded-lg border text-center text-sm" placeholder="d1">
+                            <input type="number" step="0.1" id="log-d2" oninput="liveUpdateCalc()" class="p-2.5 rounded-lg border text-center text-sm" placeholder="d2">
+                            <input type="number" step="0.1" id="log-d3" oninput="liveUpdateCalc()" class="p-2.5 rounded-lg border text-center text-sm" placeholder="d3">
+                            <input type="number" step="0.1" id="log-d4" oninput="liveUpdateCalc()" class="p-2.5 rounded-lg border text-center text-sm" placeholder="d4">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="space-y-1"><label class="text-[9px] font-bold uppercase text-slate-400 ml-1">Trim (cm)</label><input type="number" id="log-trim" oninput="liveUpdateCalc()" class="w-full p-3 rounded-xl border text-sm" placeholder="0"></div>
+                        <div class="space-y-1"><label class="text-[9px] font-bold uppercase text-slate-400 ml-1">GR (Gubal)</label><input type="number" id="log-gr" oninput="liveUpdateCalc()" class="w-full p-3 rounded-xl border text-sm" placeholder="0"></div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 bg-slate-900 text-white p-3 rounded-xl text-center">
+                        <div><span class="text-[8px] uppercase font-bold text-slate-500">Rata D</span><div class="text-xs font-bold" id="res-live-avg-d">0 cm</div></div>
+                        <div><span class="text-[8px] uppercase font-bold text-slate-500">Vol GR</span><div class="text-xs font-bold" id="res-live-vol-gr">0.00</div></div>
+                        <div><span class="text-[8px] uppercase font-bold text-slate-500">Neto</span><div class="text-xs font-bold text-amber-500" id="res-live-vol-wood">0.00</div></div>
+                    </div>
+                    <button onclick="addItemToBatch('wood')" class="w-full bg-amber-600 text-white py-3.5 rounded-xl font-bold shadow-lg transition active:scale-95 text-sm">Tambah Ke Batch</button>
+                </div>
+                <div class="border rounded-2xl overflow-hidden"><table class="w-full text-[10px]"><thead class="bg-slate-50 border-b"><tr><th class="p-3 text-left">No LOG</th><th class="p-3">Kayu</th><th class="p-3 text-center">Neto</th><th class="p-3 text-right">Aksi</th></tr></thead><tbody id="wood-batch-table"></tbody></table></div>
+            </div>
+            <div class="p-5 border-t flex space-x-3 bg-slate-50"><button onclick="closeModal('wood')" class="flex-1 py-3.5 border rounded-xl text-sm font-bold uppercase">Batal</button><button onclick="submitBatchToFirebase()" id="btn-save-batch-wood" disabled class="flex-1 py-3.5 bg-slate-900 text-white font-bold rounded-xl text-sm disabled:opacity-50 uppercase">Simpan Nota</button></div>
+        </div>
     </div>
 
-    <div id="print-area" class="print-only p-8 bg-white"></div>
-
-    <div id="modal-container" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300">
-        <div id="modal-content" class="bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto p-8 transform scale-95 transition-all duration-300 border border-slate-200"></div>
-    </div>
-
-    <!-- Firebase Scripts -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, increment, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'kayu-log-ms';
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        
-        let currentUser = null;
-        let userRole = null; 
-        let currentView = 'dashboard';
-        let enteredPin = "";
-        let securityConfig = null;
-        let data = { inventory: [], sales: [], contacts: [], expenses: [], users: [], settings: {} };
-
-        const ROLE_PERMISSIONS = {
-            admin: ['dashboard', 'inventory', 'sales', 'expenses', 'contacts', 'reports', 'settings', 'users'],
-            kasir: ['dashboard', 'inventory', 'sales', 'contacts']
-        };
-
-        // --- PIN LOGIC ---
-        window.inputPin = (num) => {
-            if (enteredPin.length < 4) {
-                enteredPin += num;
-                updatePinDots();
-                document.getElementById('pin-error').classList.add('opacity-0');
-                if (enteredPin.length === 4) {
-                    setTimeout(validatePin, 200);
-                }
-            }
-        };
-
-        window.clearPin = () => {
-            enteredPin = "";
-            updatePinDots();
-        };
-
-        function updatePinDots() {
-            const dots = document.querySelectorAll('.pin-dot');
-            dots.forEach((dot, i) => {
-                if (i < enteredPin.length) dot.classList.add('active');
-                else dot.classList.remove('active');
-            });
-        }
-
-        window.validatePin = async () => {
-            if (enteredPin.length < 4) return;
-            
-            const adminPin = securityConfig?.adminPin || "1234";
-            const kasirPin = securityConfig?.kasirPin || "5678";
-
-            if (enteredPin === adminPin) {
-                userRole = 'admin';
-                unlockApp();
-            } else if (enteredPin === kasirPin) {
-                userRole = 'kasir';
-                unlockApp();
-            } else {
-                const container = document.getElementById('pin-container');
-                container.classList.add('shake');
-                document.getElementById('pin-error').classList.remove('opacity-0');
+    <!-- Modal Kayu Keluar -->
+    <div id="sales-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-2 md:p-4 bg-slate-900/60 backdrop-blur-sm no-print">
+        <div class="bg-white w-full max-w-lg rounded-3xl p-5 md:p-8 space-y-6 shadow-2xl max-h-[95vh] overflow-y-auto my-auto">
+            <h3 class="font-bold text-slate-800 uppercase text-sm tracking-widest">Input Kayu Keluar</h3>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" id="sales-nota" placeholder="SJ/2025/001" class="w-full p-3 rounded-xl border text-sm outline-none">
+                    <select id="sales-customer-select" class="w-full p-3 rounded-xl border text-sm outline-none"></select>
+                </div>
                 
-                setTimeout(() => {
-                    container.classList.remove('shake');
-                    enteredPin = "";
-                    updatePinDots();
-                }, 400);
-            }
-        };
-
-        function unlockApp() {
-            document.getElementById('lock-screen').classList.add('opacity-0', 'pointer-events-none');
-            const appEl = document.getElementById('app');
-            appEl.classList.remove('opacity-0', 'scale-[0.98]');
-            appEl.classList.add('scale-100');
-            updateUserUI();
-            navigate('dashboard');
-            showToast(`Selamat Datang, ${userRole.toUpperCase()}`);
-        }
-
-        window.lockApp = () => {
-            userRole = null;
-            enteredPin = "";
-            updatePinDots();
-            document.getElementById('lock-screen').classList.remove('opacity-0', 'pointer-events-none');
-            const appEl = document.getElementById('app');
-            appEl.classList.add('opacity-0', 'scale-[0.98]');
-            appEl.classList.remove('scale-100');
-        };
-
-        // Support Physical Keyboard
-        window.addEventListener('keydown', (e) => {
-            const lockScreen = document.getElementById('lock-screen');
-            if (lockScreen && !lockScreen.classList.contains('pointer-events-none')) {
-                if (e.key >= '0' && e.key <= '9') {
-                    inputPin(e.key);
-                } else if (e.key === 'Backspace') {
-                    clearPin();
-                } else if (e.key === 'Enter') {
-                    validatePin();
-                }
-            }
-        });
-
-        // --- AUTENTIKASI ---
-        async function initAuth() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Auth failed:", error);
-            }
-        }
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUser = user;
-                const securityRef = doc(db, 'artifacts', appId, 'public', 'data', 'security', 'config');
-                try {
-                    const securityDoc = await getDoc(securityRef);
-                    if (!securityDoc.exists()) {
-                        securityConfig = { adminPin: "1234", kasirPin: "5678" };
-                        await setDoc(securityRef, securityConfig);
-                    } else {
-                        securityConfig = securityDoc.data();
-                    }
-                    initDataListeners();
-                } catch (err) {
-                    console.error("Security init error:", err);
-                }
-            }
-        });
-
-        function updateUserUI() {
-            if (!currentUser || !userRole) return;
-            document.getElementById('user-id-display').textContent = currentUser.uid.substring(0, 12);
-            document.getElementById('user-role-display').textContent = userRole;
-            document.getElementById('user-avatar').textContent = userRole.charAt(0).toUpperCase();
-            renderSidebar();
-        }
-
-        // --- DATA LISTENERS ---
-        function initDataListeners() {
-            if (!currentUser) return;
-            const collections = [
-                { name: 'inventory', path: `/artifacts/${appId}/public/data/inventory` },
-                { name: 'sales', path: `/artifacts/${appId}/public/data/sales` },
-                { name: 'contacts', path: `/artifacts/${appId}/public/data/contacts` },
-                { name: 'expenses', path: `/artifacts/${appId}/public/data/expenses` },
-                { name: 'settings', path: `/artifacts/${appId}/public/data/settings/general`, isDoc: true },
-                { name: 'security', path: `/artifacts/${appId}/public/data/security/config`, isDoc: true }
-            ];
-            collections.forEach(col => {
-                if (col.isDoc) {
-                    onSnapshot(doc(db, col.path), (snapshot) => {
-                        if (snapshot.exists()) {
-                            if (col.name === 'security') securityConfig = snapshot.data();
-                            else data[col.name] = snapshot.data();
-                            if (currentView === 'settings') renderView();
-                        }
-                    }, (err) => console.error(`Error loading ${col.name}:`, err));
-                } else {
-                    onSnapshot(collection(db, col.path), (snapshot) => {
-                        data[col.name] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                        renderView();
-                    }, (err) => console.error(`Error loading ${col.name}:`, err));
-                }
-            });
-        }
-
-        // --- NAVIGASI ---
-        function renderSidebar() {
-            const nav = document.getElementById('nav-menu');
-            if (!nav || !userRole) return;
-            const items = [
-                { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
-                { id: 'inventory', label: 'Inventaris Stok', icon: 'package' },
-                { id: 'sales', label: 'Penjualan', icon: 'shopping-cart' },
-                { id: 'expenses', label: 'Biaya Operasional', icon: 'receipt' },
-                { id: 'contacts', label: 'Kontak', icon: 'users' },
-                { type: 'divider', label: 'Laporan', roles: ['admin'] },
-                { id: 'reports', label: 'Keuangan', icon: 'bar-chart-3', roles: ['admin'] },
-                { type: 'divider', label: 'Sistem', roles: ['admin'] },
-                { id: 'settings', label: 'Pengaturan', icon: 'settings', roles: ['admin'] }
-            ];
-            nav.innerHTML = items.map(item => {
-                if (item.roles && !item.roles.includes(userRole)) return '';
-                if (item.type === 'divider') return `<div class="pt-6 pb-2 text-[10px] font-black text-slate-600 uppercase tracking-widest px-4">${item.label}</div>`;
-                const active = currentView === item.id;
-                return `
-                    <button onclick="navigate('${item.id}')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group ${active ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/40 translate-x-1' : 'text-slate-400 hover:text-white hover:bg-slate-900'}">
-                        <i data-lucide="${item.icon}" class="w-5 h-5 ${active ? 'text-white' : 'group-hover:text-amber-500'} transition-colors"></i> 
-                        <span class="font-bold text-sm tracking-tight">${item.label}</span>
-                    </button>
-                `;
-            }).join('');
-            lucide.createIcons();
-        }
-
-        window.navigate = (view) => {
-            if (ROLE_PERMISSIONS[userRole] && !ROLE_PERMISSIONS[userRole].includes(view)) return;
-            currentView = view;
-            const titles = {
-                dashboard: 'Overview Dashboard', inventory: 'Gudang Kayu Log',
-                sales: 'Kasir Penjualan', expenses: 'Pengeluaran Biaya',
-                contacts: 'Manajemen Relasi', reports: 'Laporan Laba Rugi', settings: 'Konfigurasi Sistem'
-            };
-            document.getElementById('view-title').textContent = titles[view] || 'App';
-            renderSidebar();
-            renderView();
-            if (window.innerWidth < 1024) toggleSidebar(false);
-        };
-
-        function renderView() {
-            const container = document.getElementById('view-content');
-            if (!container || !userRole) return;
-            switch (currentView) {
-                case 'dashboard': renderDashboard(container); break;
-                case 'inventory': renderInventory(container); break;
-                case 'sales': renderSales(container); break;
-                case 'expenses': renderExpenses(container); break;
-                case 'contacts': renderContacts(container); break;
-                case 'reports': renderReports(container); break;
-                case 'settings': renderSettings(container); break;
-            }
-            lucide.createIcons();
-        }
-
-        // --- DASHBOARD ---
-        function renderDashboard(container) {
-            const totalVol = data.inventory.reduce((acc, curr) => acc + (curr.status === 'stok' ? Number(curr.volNeto) : 0), 0);
-            const assetValue = data.inventory.reduce((acc, curr) => acc + (curr.status === 'stok' ? Number(curr.costPerUnit || 0) * Number(curr.volNeto) : 0), 0);
-            const totalDebt = data.contacts.reduce((acc, curr) => acc + (curr.type === 'Supplier' ? Number(curr.balance || 0) : 0), 0);
-            const totalCredit = data.contacts.reduce((acc, curr) => acc + (curr.type === 'Pelanggan' ? Number(curr.balance || 0) : 0), 0);
-            container.innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div class="p-3 bg-amber-50 rounded-2xl text-amber-600 w-fit mb-4"><i data-lucide="database"></i></div>
-                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Volume Stok</p>
-                        <h3 class="text-3xl font-black text-slate-800 mt-1">${totalVol.toFixed(3)} <span class="text-sm font-normal text-slate-400 uppercase">m³</span></h3>
-                    </div>
-                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow ${userRole !== 'admin' ? 'hidden' : ''}">
-                        <div class="p-3 bg-emerald-50 rounded-2xl text-emerald-600 w-fit mb-4"><i data-lucide="trending-up"></i></div>
-                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Nilai Aset Kayu</p>
-                        <h3 class="text-3xl font-black text-slate-800 mt-1">Rp ${assetValue.toLocaleString('id-ID')}</h3>
-                    </div>
-                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div class="p-3 bg-rose-50 rounded-2xl text-rose-600 w-fit mb-4"><i data-lucide="arrow-down-left"></i></div>
-                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Hutang Supplier</p>
-                        <h3 class="text-3xl font-black text-slate-800 mt-1">Rp ${totalDebt.toLocaleString('id-ID')}</h3>
-                    </div>
-                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div class="p-3 bg-blue-50 rounded-2xl text-blue-600 w-fit mb-4"><i data-lucide="arrow-up-right"></i></div>
-                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Piutang Pelanggan</p>
-                        <h3 class="text-3xl font-black text-slate-800 mt-1">Rp ${totalCredit.toLocaleString('id-ID')}</h3>
-                    </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 bg-blue-50 p-3 rounded-xl border border-blue-100">
+                    <select id="sales-payment-status" onchange="toggleDPInput('sales')" class="p-3 rounded-xl border text-sm outline-none">
+                        <option value="Lunas">Lunas</option>
+                        <option value="Hutang">Hutang (Piutang)</option>
+                        <option value="DP">DP</option>
+                    </select>
+                    <input type="number" id="sales-dp-amount" placeholder="Nominal DP" class="hidden p-3 rounded-xl border text-sm outline-none bg-white">
                 </div>
-            `;
-        }
 
-        // --- INVENTORY ---
-        function renderInventory(container) {
-            container.innerHTML = `
-                <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
-                    <div class="relative w-full md:w-96">
-                        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                        <input type="text" id="inv-search" placeholder="Cari Kode Kayu / Jenis..." class="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition-all shadow-sm" oninput="filterInventory()">
-                    </div>
-                    <button onclick="openInventoryModal()" class="w-full md:w-auto bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-slate-900/10 transition-all font-bold tracking-tight"><i data-lucide="plus-circle" class="w-5 h-5 text-amber-500"></i> BATCH INPUT KAYU</button>
+                <div class="border-2 border-dashed border-slate-200 p-4 rounded-xl space-y-4">
+                    <select id="sales-stock-item-select" onchange="autoFillSalesFromStock()" class="w-full p-3 rounded-xl border text-sm outline-none"></select>
+                    <div class="grid grid-cols-2 gap-2"><input type="text" id="sales-wood-type" placeholder="Jenis" class="p-3 rounded-xl border text-sm outline-none"><input type="number" id="sales-wood-vol" placeholder="Vol" class="p-3 rounded-xl border text-sm outline-none"></div>
+                    <input type="number" id="sales-wood-price" placeholder="Harga Jual Item" class="w-full p-3 rounded-xl border text-sm outline-none">
+                    <button onclick="addItemToBatch('sales')" class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-xs transition active:scale-95 uppercase tracking-widest">+ Tambah Item</button>
                 </div>
-                <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
-                    <div class="overflow-x-auto">
-                        <table id="inventory-table" class="w-full text-left text-sm border-collapse">
-                            <thead>
-                                <tr class="bg-slate-50/50 border-b border-slate-100 text-[10px] uppercase font-black text-slate-400 tracking-widest">
-                                    <th class="px-6 py-5">Tgl Masuk</th><th class="px-6 py-5">Barcode</th><th class="px-6 py-5">Jenis</th><th class="px-6 py-5">Ukuran</th><th class="px-6 py-5">Vol Neto</th><th class="px-6 py-5 text-center">Status</th><th class="px-6 py-5"></th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                ${data.inventory.map(item => `
-                                    <tr class="hover:bg-amber-50/30 transition-colors group">
-                                        <td class="px-6 py-5 text-slate-500">${item.date}</td>
-                                        <td class="px-6 py-5 font-black text-slate-900">${item.barcode}</td>
-                                        <td class="px-6 py-5"><span class="px-3 py-1 bg-slate-100 rounded-lg font-bold text-slate-600 text-[11px] uppercase">${item.woodType}</span></td>
-                                        <td class="px-6 py-5 text-slate-500 font-medium">${item.p}cm/Ø${item.D}cm</td>
-                                        <td class="px-6 py-5 font-black text-slate-900">${item.volNeto} m³</td>
-                                        <td class="px-6 py-5 text-center"><span class="px-3 py-1 rounded-full text-[10px] font-black uppercase ${item.status === 'stok' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200'}">${item.status}</span></td>
-                                        <td class="px-6 py-5 text-right">${userRole === 'admin' ? `<button onclick="deleteLog('${item.id}')" class="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</td>
-                                    </tr>
-                                `).join('') || '<tr><td colspan="7" class="px-6 py-20 text-center"><i data-lucide="inbox" class="w-12 h-12 text-slate-200 mx-auto mb-4"></i><p class="text-slate-400 font-medium italic">Gudang kosong. Segera input kayu log masuk.</p></td></tr>'}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-        }
+                <div class="border rounded-xl max-h-40 overflow-y-auto shadow-inner"><table class="w-full text-[10px]"><tbody id="sales-batch-table" class="divide-y"></tbody></table></div>
+            </div>
+            <div class="flex space-x-2 pt-2"><button onclick="closeModal('sales')" class="flex-1 py-3.5 border rounded-xl text-sm font-bold uppercase">Batal</button><button onclick="submitBatchSalesToFirebase()" id="btn-save-batch-sales" disabled class="flex-1 py-3.5 bg-slate-900 text-white font-bold rounded-xl text-sm uppercase">Simpan SJ</button></div>
+        </div>
+    </div>
 
-        // --- SALES ---
-        function renderSales(container) {
-            container.innerHTML = `
-                <div class="flex justify-between items-center mb-8">
-                    <h3 class="text-2xl font-black text-slate-800 tracking-tight uppercase">Riwayat Penjualan</h3>
-                    <button onclick="openSalesModal()" class="bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-2xl flex items-center gap-3 font-black shadow-xl shadow-amber-900/10 transition-all uppercase tracking-widest text-xs"><i data-lucide="shopping-cart" class="w-5 h-5"></i> Baru</button>
+    <!-- Modal Pembayaran (Bayar/Cicil) -->
+    <div id="payment-modal" class="fixed inset-0 z-[110] hidden flex items-center justify-center p-4 bg-slate-900/60 no-print backdrop-blur-sm">
+        <div class="bg-white w-full max-w-xs rounded-3xl p-8 space-y-6 shadow-2xl">
+            <div class="space-y-1">
+                <h3 id="payment-title" class="font-black text-slate-800 uppercase tracking-tighter text-sm">Pembayaran</h3>
+            </div>
+            <div class="bg-slate-50 p-5 rounded-3xl shadow-inner">
+                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Sisa Saldo</p>
+                <p id="payment-current-balance" class="text-xl font-black text-slate-900">Rp 0</p>
+            </div>
+            <form onsubmit="handlePaymentSubmit(event)" class="space-y-4">
+                <input type="hidden" id="payment-contact-id">
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold uppercase text-slate-400 ml-1">Nominal</label>
+                    <input type="number" id="payment-amount" class="w-full p-4 rounded-2xl border text-sm font-bold outline-none focus:border-blue-500" required>
                 </div>
-                <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
-                    <table class="w-full text-sm text-left">
-                        <thead class="bg-slate-50 border-b text-[10px] uppercase text-slate-500 tracking-widest font-black">
-                            <tr><th class="px-6 py-5">Tgl</th><th class="px-6 py-5">No. Inv</th><th class="px-6 py-5">Pelanggan</th><th class="px-6 py-5 text-right">Vol</th><th class="px-6 py-5 text-right">Total</th><th class="px-6 py-5"></th></tr>
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold uppercase text-slate-400 ml-1">Keterangan</label>
+                    <textarea id="payment-note" rows="2" class="w-full p-4 rounded-2xl border text-sm outline-none" placeholder="Contoh: Pembayaran termin 1"></textarea>
+                </div>
+                <button type="submit" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold text-sm shadow-xl transition active:scale-95 uppercase tracking-widest">Konfirmasi</button>
+                <button type="button" onclick="closeModal('payment')" class="w-full py-2 text-slate-400 text-[10px] font-black uppercase tracking-widest text-center block w-full">Batal</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Kontak -->
+    <div id="contact-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-slate-900/60 no-print backdrop-blur-sm">
+        <div class="bg-white w-full max-w-xs rounded-3xl p-8 shadow-2xl space-y-6">
+            <h3 class="font-black text-sm uppercase text-slate-800 tracking-tighter">Tambah Kontak</h3>
+            <form onsubmit="handleContactSubmit(event)" class="space-y-4">
+                <input type="hidden" id="contact-type">
+                <input type="text" id="contact-name" placeholder="Nama Lengkap" class="w-full p-4 rounded-2xl border text-sm font-bold" required>
+                <button type="submit" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-black shadow-xl uppercase text-xs tracking-widest">Simpan</button>
+                <button type="button" onclick="closeModal('contact')" class="w-full py-2 text-slate-400 text-[10px] font-black uppercase tracking-widest text-center block w-full">Batal</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detail-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-2 bg-slate-900/60 backdrop-blur-sm overflow-y-auto no-print">
+        <div class="bg-white w-full max-w-5xl rounded-3xl flex flex-col max-h-[90vh] shadow-2xl">
+            <div class="p-5 border-b flex justify-between items-center bg-white rounded-t-3xl"><h3 id="detail-title" class="font-bold text-slate-800 text-xs uppercase tracking-widest">Detail Transaksi</h3><button onclick="closeModal('detail')" class="text-slate-400"><i data-lucide="x" class="w-6 h-6"></i></button></div>
+            <div class="p-5 overflow-y-auto space-y-6">
+                <div id="detail-metadata" class="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl text-[10px] md:text-xs">
+                    <div><p class="font-bold text-slate-400 uppercase tracking-widest">Nota</p><p id="detail-meta-invoice" class="font-bold text-slate-800">-</p></div>
+                    <div><p id="detail-meta-contact-label" class="font-bold text-slate-400 uppercase tracking-widest">Pihak</p><p id="detail-meta-contact-name" class="font-bold text-slate-800">-</p></div>
+                    <div><p class="font-bold text-slate-400 uppercase tracking-widest">Status</p><p id="detail-meta-status" class="font-bold uppercase">-</p></div>
+                    <div><p class="font-bold text-slate-400 uppercase tracking-widest">Total</p><p id="detail-meta-total" class="font-black text-blue-600">-</p></div>
+                </div>
+                <div class="overflow-x-auto border rounded-xl shadow-inner">
+                    <table class="w-full text-[10px] text-left min-w-[600px]">
+                        <thead class="bg-slate-50 border-b uppercase font-bold tracking-tighter">
+                            <tr>
+                                <th class="p-3">No LOG</th>
+                                <th class="p-3">Jenis/Grade</th>
+                                <th class="p-3 text-center">d1</th>
+                                <th class="p-3 text-center">d2</th>
+                                <th class="p-3 text-center">d3</th>
+                                <th class="p-3 text-center">d4</th>
+                                <th class="p-3 text-center">Trim</th>
+                                <th class="p-3 text-center">Vol GR</th>
+                                <th class="p-3 text-center">Neto</th>
+                                <th class="p-3 text-right">Harga</th>
+                            </tr>
                         </thead>
-                        <tbody class="divide-y">
-                            ${data.sales.map(s => `
-                                <tr class="hover:bg-slate-50/80 transition-colors">
-                                    <td class="px-6 py-5 text-slate-500">${s.date}</td><td class="px-6 py-5 font-mono font-black text-slate-700">${s.invNo}</td><td class="px-6 py-5 font-bold text-slate-900">${s.customerName}</td><td class="px-6 py-5 text-right font-bold text-slate-600">${s.totalVol}</td><td class="px-6 py-5 text-right font-black text-emerald-600">Rp ${Number(s.totalAmount).toLocaleString('id-ID')}</td>
-                                    <td class="px-6 py-5 text-right flex justify-end gap-2">
-                                        <button onclick="printInvoice('${s.id}')" class="p-3 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl"><i data-lucide="printer" class="w-4 h-4"></i></button>
-                                        ${userRole === 'admin' ? `<button onclick="deleteSale('${s.id}')" class="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
-                                    </td>
-                                </tr>
-                            `).join('') || '<tr><td colspan="6" class="px-6 py-20 text-center text-slate-400 font-bold italic tracking-wider uppercase opacity-30">Belum Ada Transaksi</td></tr>'}
-                        </tbody>
+                        <tbody id="detail-table-body" class="divide-y"></tbody>
                     </table>
                 </div>
-            `;
-        }
+                <!-- Action Button for Printing -->
+                <button onclick="printNotaDetail()" id="btn-print-detail-nota" class="w-full py-4 bg-amber-600 text-white rounded-2xl font-bold shadow-lg flex items-center justify-center space-x-2 transition active:scale-95 uppercase tracking-widest"><i data-lucide="printer" class="w-5 h-5"></i> <span>CETAK DOKUMEN</span></button>
+            </div>
+        </div>
+    </div>
 
-        // --- BIAYA ---
-        function renderExpenses(container) {
-            container.innerHTML = `
-                <div class="flex justify-between items-center mb-8">
-                    <h3 class="text-2xl font-black text-slate-800 tracking-tight uppercase">BIAYA OPERASIONAL</h3>
-                    <button onclick="openExpenseModal()" class="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 rounded-2xl flex items-center gap-3 font-black shadow-xl transition-all uppercase tracking-widest text-xs"><i data-lucide="plus" class="w-5 h-5"></i> Catat</button>
-                </div>
-                <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
-                    <table class="w-full text-sm text-left">
-                        <thead class="bg-slate-50 border-b text-[10px] uppercase text-slate-500 tracking-widest font-black">
-                            <tr><th class="px-6 py-5">Tgl</th><th class="px-6 py-5">Kategori</th><th class="px-6 py-5 text-right">Nominal</th><th class="px-6 py-5"></th></tr>
-                        </thead>
-                        <tbody class="divide-y">
-                            ${data.expenses.map(e => `
-                                <tr>
-                                    <td class="px-6 py-5 text-slate-500">${e.date}</td><td class="px-6 py-5"><span class="bg-slate-100 px-3 py-1 rounded-lg text-[10px] font-black uppercase text-slate-600">${e.category}</span></td>
-                                    <td class="px-6 py-5 text-right font-black text-rose-600 tracking-tight">Rp ${Number(e.amount).toLocaleString('id-ID')}</td>
-                                    <td class="px-6 py-5 text-right">${userRole === 'admin' ? `<button onclick="deleteDocById('expenses', '${e.id}')" class="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</td>
-                                </tr>
-                            `).join('') || '<tr><td colspan="4" class="px-6 py-20 text-center text-slate-400 italic font-medium uppercase tracking-widest opacity-30">Tidak Ada Catatan</td></tr>'}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
+    <!-- Modal Biaya -->
+    <div id="expense-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-slate-900/60 no-print backdrop-blur-sm">
+        <div class="bg-white w-full max-w-xs rounded-3xl p-8 shadow-2xl space-y-6">
+            <h3 class="font-black text-sm uppercase text-slate-800 tracking-tighter">Input Biaya</h3>
+            <form onsubmit="handleExpenseSubmit(event)" class="space-y-4">
+                <input type="text" id="expense-category" placeholder="Kategori (Bensin, Gaji, dll)" class="w-full p-4 rounded-2xl border text-sm font-bold" required>
+                <input type="number" id="expense-amount" placeholder="Nominal" class="w-full p-4 rounded-2xl border text-sm font-bold" required>
+                <textarea id="expense-note" placeholder="Catatan tambahan" class="w-full p-4 rounded-2xl border text-sm outline-none"></textarea>
+                <button type="submit" class="w-full py-4 bg-rose-500 text-white rounded-2xl font-black shadow-xl uppercase text-xs tracking-widest">Simpan Biaya</button>
+                <button type="button" onclick="closeModal('expense')" class="w-full py-2 text-slate-400 text-[10px] font-black uppercase tracking-widest text-center block w-full">Batal</button>
+            </form>
+        </div>
+    </div>
 
-        // --- KONTAK ---
-        function renderContacts(container) {
-            container.innerHTML = `
-                <div class="flex justify-between items-center mb-8">
-                    <h3 class="text-2xl font-black text-slate-800 tracking-tight uppercase">MANAJEMEN RELASI</h3>
-                    <button onclick="openContactModal()" class="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 rounded-2xl flex items-center gap-3 font-black shadow-xl transition-all uppercase tracking-widest text-xs"><i data-lucide="user-plus" class="w-5 h-5"></i> Tambah</button>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    ${data.contacts.map(c => `
-                        <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative group hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${c.type === 'Supplier' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-blue-50 text-blue-600 border-blue-100'}">${c.type}</span>
-                            <h4 class="font-black text-slate-800 text-xl mt-4 tracking-tight">${c.name}</h4>
-                            <p class="text-xs text-slate-400 font-bold mb-6">${c.phone}</p>
-                            <div class="pt-6 border-t border-slate-100 flex justify-between items-center">
-                                <p class="text-[10px] text-slate-400 uppercase font-black tracking-widest">${c.type === 'Supplier' ? 'Hutang' : 'Piutang'}</p>
-                                <p class="font-black text-slate-900 text-lg">Rp ${Number(c.balance || 0).toLocaleString('id-ID')}</p>
-                            </div>
-                            ${userRole === 'admin' ? `<button onclick="deleteDocById('contacts', '${c.id}')" class="absolute top-6 right-6 text-slate-200 hover:text-rose-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
-                        </div>
-                    `).join('') || '<p class="col-span-full py-20 text-center text-slate-400 font-bold uppercase tracking-widest opacity-30">Belum Ada Kontak</p>'}
-                </div>
-            `;
-        }
+    <!-- Hidden Iframe for Printing -->
+    <iframe id="print-frame" style="display:none; visibility:hidden; position:absolute;"></iframe>
 
-        // --- LAPORAN ---
-        function renderReports(container) {
-            const revenue = data.sales.reduce((acc, s) => acc + Number(s.totalAmount), 0);
-            const cogs = data.inventory.filter(i => i.status === 'terjual').reduce((acc, i) => acc + (Number(i.costPerUnit || 0) * Number(i.volNeto)), 0);
-            const opex = data.expenses.reduce((acc, e) => acc + Number(e.amount), 0);
-            const profit = revenue - cogs - opex;
-            container.innerHTML = `
-                <div class="max-w-3xl mx-auto">
-                    <div class="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-xl">
-                        <h3 class="text-3xl font-black text-center mb-12 border-b border-slate-100 pb-8 tracking-tighter uppercase">Laporan Laba Rugi</h3>
-                        <div class="space-y-6">
-                            <div class="flex justify-between font-bold text-lg"><span class="text-slate-400 uppercase tracking-widest text-xs mt-1">Total Penjualan</span><span class="text-slate-900 font-black">Rp ${revenue.toLocaleString('id-ID')}</span></div>
-                            <div class="flex justify-between text-slate-400 italic ml-4 text-sm"><span>HPP (COGS)</span><span>(Rp ${cogs.toLocaleString('id-ID')})</span></div>
-                            <div class="flex justify-between border-t border-slate-100 pt-6 font-black text-slate-800 uppercase tracking-tighter text-xl"><span>Laba Kotor</span><span>Rp ${(revenue - cogs).toLocaleString('id-ID')}</span></div>
-                            <div class="flex justify-between text-rose-500 font-bold pt-4 text-sm uppercase tracking-widest"><span>Biaya Operasional</span><span>(Rp ${opex.toLocaleString('id-ID')})</span></div>
-                            <div class="flex justify-between items-center bg-slate-950 text-white p-8 rounded-[2rem] mt-12 shadow-2xl shadow-slate-950/20">
-                                <span class="text-sm font-black uppercase tracking-[0.2em] text-slate-500">Hasil Laba Bersih</span>
-                                <span class="text-3xl font-black text-amber-500 tracking-tight">Rp ${profit.toLocaleString('id-ID')}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, serverTimestamp, writeBatch, increment, updateDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // --- PENGATURAN ---
-        function renderSettings(container) {
-            container.innerHTML = `
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div class="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm h-fit">
-                        <h3 class="text-xl font-black mb-8 flex items-center gap-3 uppercase tracking-tighter text-slate-800"><i data-lucide="building-2" class="text-amber-500"></i> Profil Bisnis</h3>
-                        <form onsubmit="saveSettings(event)" class="space-y-6">
-                            <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nama Perusahaan</label><input type="text" name="companyName" value="${data.settings.companyName || ''}" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none"></div>
-                            <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Alamat Kantor</label><textarea name="address" rows="3" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none">${data.settings.address || ''}</textarea></div>
-                            <div class="pt-6 border-t border-slate-50"><button type="submit" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-slate-800 transition-all">Update Profil</button></div>
-                        </form>
-                    </div>
-                    <div class="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm h-fit">
-                        <h3 class="text-xl font-black mb-8 flex items-center gap-3 uppercase tracking-tighter text-rose-600"><i data-lucide="shield-check"></i> Keamanan PIN</h3>
-                        <form onsubmit="saveSecurity(event)" class="space-y-6">
-                            <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Ganti PIN Admin</label>
-                                <input type="password" maxlength="4" name="adminPin" value="${securityConfig?.adminPin || ''}" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-black text-center text-2xl tracking-[1em] focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none">
-                            </div>
-                            <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Ganti PIN Kasir</label>
-                                <input type="password" maxlength="4" name="kasirPin" value="${securityConfig?.kasirPin || ''}" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-black text-center text-2xl tracking-[1em] focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none">
-                            </div>
-                            <div class="pt-6 border-t border-slate-50"><button type="submit" class="w-full bg-rose-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-rose-500 transition-all">Kunci PIN Baru</button></div>
-                        </form>
-                    </div>
-                </div>
-            `;
-        }
+        // --- KONFIGURASI ---
+        const firebaseConfig = { apiKey: "AIzaSyD8m4HiTateYgP-79EmbKkqOG-lBIeikBc", authDomain: "log-master-687fd.firebaseapp.com", projectId: "log-master-687fd", storageBucket: "log-master-687fd.firebasestorage.app", messagingSenderId: "1020351029888", appId: "1:1020351029888:web:47706ebb73f446207b7c65" };
+        const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app), appId = "log-master-system";
 
-        // --- MODAL FUNCTIONS (RE-ADDED) ---
-        window.openInventoryModal = () => {
-            const modal = document.getElementById('modal-container');
-            const content = document.getElementById('modal-content');
-            content.innerHTML = `
-                <div class="flex justify-between items-center mb-8">
-                    <h3 class="text-2xl font-black tracking-tight uppercase">Input Batch Kayu Log</h3>
-                    <button onclick="closeModal()" class="p-2 hover:bg-slate-100 rounded-xl"><i data-lucide="x" class="w-6 h-6"></i></button>
-                </div>
-                <form id="batch-form" onsubmit="saveBatch(event)" class="space-y-8">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 bg-slate-50 p-6 rounded-3xl border border-slate-100 shadow-inner">
-                        <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tanggal Masuk</label><input type="date" name="date" required value="${new Date().toISOString().split('T')[0]}" class="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500"></div>
-                        <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nomor Batch</label><input type="text" name="batchNo" required placeholder="BTC-001" class="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500"></div>
-                        <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Pilih Supplier</label><select name="supplierId" required class="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500">
-                            <option value="">-- Pilih --</option>
-                            ${data.contacts.filter(c => c.type === 'Supplier').map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-                        </select></div>
-                        <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Harga Nota</label><input type="number" name="totalPrice" required placeholder="Rp" class="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500"></div>
-                    </div>
-                    <div id="log-items-container" class="space-y-4">
-                        <div class="flex items-center gap-4 px-2 border-b border-slate-100 pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            <span class="w-32">Barcode</span><span class="w-32">Jenis Kayu</span><span class="w-24">P (cm)</span><span class="flex-1 text-center">d1 - d4 (cm)</span><span class="w-32 text-center">Trim/GR</span><span class="w-24 text-right">Vol</span><span class="w-10"></span>
-                        </div>
-                    </div>
-                    <button type="button" onclick="addLogRow()" class="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:border-amber-500 hover:text-amber-600 hover:bg-amber-50/50 transition-all font-bold uppercase text-[10px] tracking-[0.2em]">+ Tambah Item Kayu</button>
-                    <div class="flex justify-between items-center pt-8 border-t border-slate-100">
-                        <div class="flex items-center gap-8">
-                            <div><p class="text-[10px] font-black text-slate-400 uppercase mb-1">Total Kayu</p><p id="row-count-display" class="text-2xl font-black">0</p></div>
-                            <div class="h-10 w-px bg-slate-200"></div>
-                            <div><p class="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">Total Volume Batch</p><p id="total-batch-vol" class="text-3xl font-black text-amber-600">0.0000 m³</p></div>
-                        </div>
-                        <div class="flex gap-4">
-                            <button type="button" onclick="closeModal()" class="px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-100 transition-colors">Batal</button>
-                            <button type="submit" class="bg-slate-900 text-white px-10 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-slate-800">Simpan Seluruh Data</button>
-                        </div>
-                    </div>
-                </form>
-            `;
-            addLogRow();
-            modal.style.opacity = '1'; modal.style.pointerEvents = 'auto';
-            content.classList.remove('scale-95');
-            lucide.createIcons();
-        };
+        let inventoryData = [], contactsData = [], salesData = [], transactionsData = [], expensesData = [];
+        let temporaryBatchWood = [], temporaryBatchSales = [], currentLiveVolWood = 0, currentLiveAvgD = 0, currentLiveVolGR = 0, companyProfile = { name: "Wood-IT Log", address: "Jl. Utama", phone: "0812" };
+        
+        // Data tracker untuk modal detail saat ini
+        let currentDetailType = ''; // 'inventory' atau 'sales'
+        let currentDetailNota = '';
+        let currentDetailItems = [];
 
-        window.addLogRow = () => {
-            const container = document.getElementById('log-items-container');
-            const rowId = 'row-' + Date.now();
-            const div = document.createElement('div');
-            div.id = rowId;
-            div.className = "flex items-center gap-4 log-row animate-in slide-in-from-top-2 duration-300";
-            div.innerHTML = `
-                <input type="text" placeholder="BAR-123" class="w-32 px-3 py-2 text-sm border rounded-xl barcode-in focus:ring-2 focus:ring-amber-500/20 outline-none">
-                <input type="text" placeholder="Meranti" class="w-32 px-3 py-2 text-sm border rounded-xl woodtype-in focus:ring-2 focus:ring-amber-500/20 outline-none">
-                <input type="number" placeholder="cm" class="w-24 px-3 py-2 text-sm border rounded-xl p-in focus:ring-2 focus:ring-amber-500/20 outline-none" oninput="updateRowVol('${rowId}')">
-                <div class="flex-1 flex gap-1">
-                    <input type="number" placeholder="d1" class="w-full p-2 text-xs border rounded-lg d1-in" oninput="updateRowVol('${rowId}')">
-                    <input type="number" placeholder="d2" class="w-full p-2 text-xs border rounded-lg d2-in" oninput="updateRowVol('${rowId}')">
-                    <input type="number" placeholder="d3" class="w-full p-2 text-xs border rounded-lg d3-in" oninput="updateRowVol('${rowId}')">
-                    <input type="number" placeholder="d4" class="w-full p-2 text-xs border rounded-lg d4-in" oninput="updateRowVol('${rowId}')">
-                </div>
-                <div class="w-32 flex gap-1">
-                    <input type="number" placeholder="Tr" class="w-full p-2 text-xs border rounded-lg trim-in" oninput="updateRowVol('${rowId}')">
-                    <input type="number" placeholder="GR" class="w-full p-2 text-xs border rounded-lg gr-in" oninput="updateRowVol('${rowId}')">
-                </div>
-                <div class="w-24 text-right font-black text-sm vol-display text-slate-800">0.0000</div>
-                <button type="button" onclick="this.parentElement.remove(); updateTotalDisplays();" class="w-10 flex items-center justify-center text-slate-300 hover:text-rose-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-            `;
-            container.appendChild(div);
-            lucide.createIcons();
-            updateTotalDisplays();
-        };
-
-        window.updateRowVol = (rowId) => {
-            const row = document.getElementById(rowId);
-            const params = {
-                p: row.querySelector('.p-in').value || 0,
-                d1: row.querySelector('.d1-in').value || 0,
-                d2: row.querySelector('.d2-in').value || 0,
-                d3: row.querySelector('.d3-in').value || 0,
-                d4: row.querySelector('.d4-in').value || 0,
-                trim: row.querySelector('.trim-in').value || 0,
-                gr: row.querySelector('.gr-in').value || 0
-            };
-            const calc = calculateVolume(params);
-            row.querySelector('.vol-display').textContent = calc.volNeto;
-            updateTotalDisplays();
-        };
-
-        function updateTotalDisplays() {
-            let total = 0;
-            const rows = document.querySelectorAll('.log-row');
-            document.querySelectorAll('.vol-display').forEach(el => total += Number(el.textContent));
-            if(document.getElementById('total-batch-vol')) document.getElementById('total-batch-vol').textContent = total.toFixed(4) + ' m³';
-            if(document.getElementById('row-count-display')) document.getElementById('row-count-display').textContent = rows.length;
-        }
-
-        window.saveBatch = async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const batchMeta = Object.fromEntries(formData.entries());
-            const rows = document.querySelectorAll('.log-row');
-            if(rows.length === 0) return showToast("Tambahkan kayu!", "error");
-            
-            const logs = [];
-            let totalVol = 0;
-            rows.forEach(row => {
-                const params = {
-                    p: row.querySelector('.p-in').value, d1: row.querySelector('.d1-in').value,
-                    d2: row.querySelector('.d2-in').value, d3: row.querySelector('.d3-in').value,
-                    d4: row.querySelector('.d4-in').value, trim: row.querySelector('.trim-in').value || 0,
-                    gr: row.querySelector('.gr-in').value || 0
-                };
-                const calc = calculateVolume(params);
-                logs.push({ 
-                    ...batchMeta, barcode: row.querySelector('.barcode-in').value, 
-                    woodType: row.querySelector('.woodtype-in').value, 
-                    ...params, ...calc, status: 'stok', createdAt: serverTimestamp() 
-                });
-                totalVol += Number(calc.volNeto);
-            });
-            const costPerUnit = totalVol > 0 ? Number(batchMeta.totalPrice) / totalVol : 0;
-            try {
-                const batchWriter = writeBatch(db);
-                logs.forEach(log => { 
-                    const ref = doc(collection(db, 'artifacts', appId, 'public', 'data', 'inventory'));
-                    batchWriter.set(ref, { ...log, costPerUnit }); 
-                });
-                batchWriter.update(doc(db, 'artifacts', appId, 'public', 'data', 'contacts', batchMeta.supplierId), { balance: increment(Number(batchMeta.totalPrice)) });
-                await batchWriter.commit();
-                showToast("Batch Berhasil Disimpan!"); closeModal();
-            } catch (err) { showToast("Gagal menyimpan.", "error"); }
-        };
-
-        window.openSalesModal = () => {
-            const modal = document.getElementById('modal-container');
-            const content = document.getElementById('modal-content');
-            content.innerHTML = `
-                <div class="flex justify-between items-center mb-8">
-                    <h3 class="text-2xl font-black uppercase">Transaksi Penjualan Baru</h3>
-                    <button onclick="closeModal()" class="p-2 hover:bg-slate-100 rounded-xl"><i data-lucide="x" class="w-6 h-6"></i></button>
-                </div>
-                <form onsubmit="saveSale(event)" class="space-y-8">
-                    <div class="grid grid-cols-2 gap-6 bg-slate-50 p-6 rounded-3xl border">
-                        <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Pilih Pelanggan</label><select name="customerId" required class="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500">
-                            <option value="">-- Pilih --</option>
-                            ${data.contacts.filter(c => c.type === 'Pelanggan').map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-                        </select></div>
-                        <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Invoice #</label><input type="text" name="invNo" required value="INV-${Date.now().toString().slice(-6)}" class="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500"></div>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Pilih Kayu Stok</label>
-                        <div class="max-h-60 overflow-y-auto border rounded-2xl p-4 bg-white space-y-2 no-scrollbar">
-                            ${data.inventory.filter(i => i.status === 'stok').map(i => `
-                                <label class="flex items-center gap-4 p-3 hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-xl cursor-pointer transition-all">
-                                    <input type="checkbox" name="selected_logs" value="${i.id}" data-vol="${i.volNeto}" class="sale-log-check w-5 h-5 rounded-lg border-slate-300 text-amber-600 focus:ring-amber-500" onchange="calculateSaleTotal()">
-                                    <div class="flex-1">
-                                        <div class="flex justify-between font-black text-slate-800"><span>${i.barcode}</span><span class="text-amber-600">${i.volNeto} m³</span></div>
-                                        <div class="text-[10px] font-bold text-slate-400 uppercase">${i.woodType} | ${i.p}cm/Ø${i.D}cm</div>
-                                    </div>
-                                </label>
-                            `).join('') || '<p class="text-center py-8 text-slate-300 italic">Stok gudang sedang kosong</p>'}
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-8 items-end">
-                        <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Harga Jual / m³</label><input type="number" id="sale-price-input" required placeholder="0" class="w-full px-4 py-3 border rounded-xl text-xl font-black outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500" oninput="calculateSaleTotal()"></div>
-                        <div class="text-right p-6 bg-emerald-50 rounded-3xl border border-emerald-100"><p class="text-[10px] font-black text-emerald-600 uppercase mb-1">Estimasi Tagihan</p><p id="sale-total-display" class="text-3xl font-black text-emerald-700">Rp 0</p></div>
-                    </div>
-                    <button type="submit" class="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-2xl hover:bg-slate-800 transition-all">Proses Penjualan & Simpan</button>
-                </form>
-            `;
-            modal.style.opacity = '1'; modal.style.pointerEvents = 'auto';
-            content.classList.remove('scale-95');
-            lucide.createIcons();
-        };
-
-        window.calculateSaleTotal = () => {
-            let totalVol = 0;
-            document.querySelectorAll('.sale-log-check:checked').forEach(c => totalVol += Number(c.dataset.vol));
-            const price = Number(document.getElementById('sale-price-input').value || 0);
-            if(document.getElementById('sale-total-display')) document.getElementById('sale-total-display').textContent = 'Rp ' + (totalVol * price).toLocaleString('id-ID');
-        };
-
-        window.saveSale = async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const customerId = formData.get('customerId');
-            const selectedLogIds = formData.getAll('selected_logs');
-            const invNo = formData.get('invNo');
-            const pricePerM3 = Number(document.getElementById('sale-price-input').value);
-            
-            if(selectedLogIds.length === 0) return showToast("Pilih kayu!", "error");
-            
-            let totalVol = 0;
-            const customer = data.contacts.find(c => c.id === customerId);
-            const batchWriter = writeBatch(db);
-            selectedLogIds.forEach(id => {
-                const item = data.inventory.find(i => i.id === id);
-                totalVol += Number(item.volNeto);
-                batchWriter.update(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id), { status: 'terjual', soldAt: serverTimestamp() });
-            });
-            const totalAmount = totalVol * pricePerM3;
-            const saleRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'sales'));
-            batchWriter.set(saleRef, {
-                invNo, customerId, customerName: customer.name, totalVol, pricePerM3, totalAmount,
-                logIds: selectedLogIds, date: new Date().toISOString().split('T')[0], createdAt: serverTimestamp()
-            });
-            batchWriter.update(doc(db, 'artifacts', appId, 'public', 'data', 'contacts', customerId), { balance: increment(totalAmount) });
-            try {
-                await batchWriter.commit();
-                showToast("Transaksi Berhasil!", "success"); closeModal();
-            } catch (err) { showToast("Gagal.", "error"); }
-        };
-
-        window.openExpenseModal = () => {
-            const modal = document.getElementById('modal-container');
-            const content = document.getElementById('modal-content');
-            content.innerHTML = `
-                <h3 class="text-xl font-black mb-8 uppercase tracking-tighter">Catat Pengeluaran Operasional</h3>
-                <form onsubmit="saveExpense(event)" class="space-y-6">
-                    <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Kategori</label>
-                        <select name="category" class="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500"><option>Gaji Karyawan</option><option>BBM & Transport</option><option>Perbaikan Alat</option><option>Konsumsi</option><option>Sewa / Utilitas</option><option>Lain-lain</option></select>
-                    </div>
-                    <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nominal (Rp)</label><input type="number" name="amount" required class="w-full px-4 py-3 border rounded-xl text-xl font-black outline-none focus:ring-2 focus:ring-amber-500"></div>
-                    <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Keterangan / Catatan</label><textarea name="note" class="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500" rows="3"></textarea></div>
-                    <div class="pt-6 flex gap-4"><button type="button" onclick="closeModal()" class="flex-1 py-3 font-bold uppercase text-[10px] tracking-widest hover:bg-slate-100 rounded-xl">Batal</button><button type="submit" class="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">Simpan Biaya</button></div>
-                </form>
-            `;
-            modal.style.opacity = '1'; modal.style.pointerEvents = 'auto';
-            lucide.createIcons();
-        };
-
-        window.saveExpense = async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const expense = Object.fromEntries(formData.entries());
-            expense.date = new Date().toISOString().split('T')[0];
-            expense.createdAt = serverTimestamp();
-            try {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), expense);
-                showToast("Biaya tercatat."); closeModal();
-            } catch (err) { showToast("Gagal.", "error"); }
-        };
-
-        window.openContactModal = () => {
-            const modal = document.getElementById('modal-container');
-            const content = document.getElementById('modal-content');
-            content.innerHTML = `
-                <h3 class="text-xl font-black mb-8 uppercase tracking-tighter">Tambah Kontak Relasi</h3>
-                <form onsubmit="saveContact(event)" class="space-y-6">
-                    <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nama Lengkap</label><input type="text" name="name" required class="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500"></div>
-                    <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipe Kontak</label><select name="type" required class="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500"><option value="Supplier">Supplier (Hutang)</option><option value="Pelanggan">Pelanggan (Piutang)</option></select></div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Telepon</label><input type="text" name="phone" class="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500"></div>
-                        <div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Saldo Awal</label><input type="number" name="balance" value="0" class="w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-amber-500"></div>
-                    </div>
-                    <div class="pt-6"><button type="submit" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl">Simpan Kontak</button></div>
-                </form>
-            `;
-            modal.style.opacity = '1'; modal.style.pointerEvents = 'auto';
-            lucide.createIcons();
-        };
-
-        window.saveContact = async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const contactData = Object.fromEntries(formData.entries());
-            contactData.balance = Number(contactData.balance);
-            try {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contacts'), contactData);
-                showToast("Kontak ditambahkan."); closeModal();
-            } catch (err) { showToast("Gagal.", "error"); }
-        };
-
-        window.printInvoice = (id) => {
-            const sale = data.sales.find(s => s.id === id);
-            const printArea = document.getElementById('print-area');
-            const items = data.inventory.filter(i => sale.logIds.includes(i.id));
-            printArea.innerHTML = `
-                <div class="mb-12 flex justify-between items-start">
-                    <div><h1 class="text-3xl font-black">${data.settings.companyName || 'CV. KAYU LOG'}</h1><p class="text-xs text-slate-500 mt-2">${data.settings.address || '-'}</p></div>
-                    <div class="text-right"><h2 class="text-2xl font-black text-slate-800 uppercase tracking-tighter">NOTA PENJUALAN</h2><p class="text-sm font-mono font-bold mt-1 text-amber-600">${sale.invNo}</p><p class="text-xs text-slate-400 font-bold">${sale.date}</p></div>
-                </div>
-                <div class="mb-10 p-6 border-2 border-slate-100 rounded-3xl"><p class="text-[10px] uppercase text-slate-400 font-black tracking-widest mb-2">Ditujukan Kepada:</p><p class="font-black text-xl text-slate-800">${sale.customerName}</p></div>
-                <table class="w-full text-sm mb-12 border-collapse">
-                    <thead class="border-b-4 border-slate-900"><tr class="font-black uppercase text-[10px] tracking-widest text-slate-500"><th class="py-4 text-left">Barcode</th><th class="py-4 text-left">Jenis</th><th class="py-4 text-center">Ukuran (P/Ø)</th><th class="py-4 text-right">Volume</th></tr></thead>
-                    <tbody class="divide-y divide-slate-100">${items.map(i => `<tr><td class="py-4 font-bold">${i.barcode}</td><td class="py-4 font-bold text-slate-500 uppercase">${i.woodType}</td><td class="py-4 text-center">${i.p}cm / Ø${i.D}cm</td><td class="py-4 text-right font-black">${i.volNeto} m³</td></tr>`).join('')}</tbody>
-                    <tfoot class="border-t-4 border-slate-900 font-black">
-                        <tr><td colspan="3" class="py-6 text-right uppercase tracking-widest text-xs text-slate-400">Total Volume</td><td class="py-6 text-right text-lg">${Number(sale.totalVol).toFixed(3)} m³</td></tr>
-                        <tr><td colspan="3" class="py-2 text-right uppercase tracking-widest text-xs text-slate-400">Harga Satuan</td><td class="py-2 text-right">Rp ${Number(sale.pricePerM3).toLocaleString('id-ID')}</td></tr>
-                        <tr class="text-2xl"><td colspan="3" class="py-6 text-right uppercase tracking-tighter">Total Bayar</td><td class="py-6 text-right text-emerald-600">Rp ${Number(sale.totalAmount).toLocaleString('id-ID')}</td></tr>
-                    </tfoot>
-                </table>
-                <div class="mt-20 flex justify-between px-10"><div class="text-center border-t border-slate-200 pt-4 w-48 text-[10px] font-bold uppercase tracking-widest text-slate-400">Penerima</div><div class="text-center border-t border-slate-200 pt-4 w-48 text-[10px] font-bold uppercase tracking-widest text-slate-400">Hormat Kami</div></div>
-            `;
-            window.print();
-        };
-
-        // --- PENGATURAN PIN KEAMANAN ---
-        window.saveSecurity = async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const adminPin = formData.get('adminPin');
-            const kasirPin = formData.get('kasirPin');
-            if (adminPin.length !== 4 || kasirPin.length !== 4) return showToast("PIN harus 4 angka!", "error");
-            try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'security', 'config'), { adminPin, kasirPin });
-                showToast("PIN Berhasil Diperbarui.");
-            } catch (err) { showToast("Gagal.", "error"); }
-        };
-
-        window.saveSettings = async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const settings = Object.fromEntries(formData.entries());
-            try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general'), settings);
-                showToast("Profil Disimpan.");
-            } catch (err) { showToast("Gagal.", "error"); }
-        };
-
-        // --- LOGIKA VOLUME ---
-        window.calculateVolume = (params) => {
-            const { p, d1, d2, d3, d4, trim, gr } = params;
-            const D = (Number(d1) + Number(d2) + Number(d3) + Number(d4)) / 4;
-            const effectiveP = Number(p) - Number(trim);
-            const volBruto = (0.7854 * Math.pow(D, 2) * effectiveP) / 1000000;
-            const volGR = (0.7854 * Math.pow(Number(gr), 2) * Number(p)) / 1000000;
-            const volNeto = volBruto - volGR;
-            return { D: D.toFixed(2), volNeto: Math.max(0, volNeto).toFixed(4) };
-        };
-
-        // --- UI UTILS ---
-        window.closeModal = () => {
-            const modal = document.getElementById('modal-container');
-            const content = document.getElementById('modal-content');
-            modal.style.opacity = '0'; modal.style.pointerEvents = 'none';
-            content.classList.add('scale-95');
-        };
-
-        window.toggleSidebar = (state) => {
-            const sidebar = document.getElementById('sidebar');
-            if (state === undefined) sidebar.classList.toggle('-translate-x-full');
-            else if (state) sidebar.classList.remove('-translate-x-full');
-            else sidebar.classList.add('-translate-x-full');
-        };
-
-        window.showToast = (msg, type = 'success') => {
+        const refreshIcons = () => { if (window.lucide) window.lucide.createIcons(); };
+        const formatCurrency = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n || 0);
+        
+        const showToast = (msg, type = 'success') => {
+            const container = document.getElementById('toast-container');
+            if(!container) return;
             const toast = document.createElement('div');
-            toast.className = `fixed bottom-8 right-8 px-8 py-4 rounded-2xl shadow-2xl text-white font-black uppercase tracking-widest text-[10px] z-[110] transition-all transform translate-y-20 border-b-4 ${type === 'success' ? 'bg-emerald-600 border-emerald-800' : 'bg-rose-600 border-rose-800'}`;
-            toast.textContent = msg;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.classList.remove('translate-y-20'), 100);
-            setTimeout(() => { toast.classList.add('translate-y-20'); setTimeout(() => toast.remove(), 500); }, 3500);
+            toast.className = `toast ${type==='success'?'bg-emerald-600':'bg-rose-600'} text-white px-5 py-3 rounded-2xl shadow-xl mb-3 flex items-center space-x-3`;
+            toast.innerHTML = `<i data-lucide="${type==='success'?'check-circle':'alert-circle'}" class="w-4 h-4"></i><span class="text-xs font-bold">${msg}</span>`;
+            container.appendChild(toast); refreshIcons();
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
         };
 
-        window.deleteLog = async (id) => { if(confirm("Hapus data kayu?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id)); };
-        window.deleteSale = async (id) => { if(confirm("Hapus transaksi?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sales', id)); };
-        window.deleteDocById = async (col, id) => { if(confirm("Hapus item?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', col, id)); };
-
-        // --- BOOTSTRAP ---
-        window.onload = () => {
-            initAuth();
-            lucide.createIcons();
+        // --- DATABASE MANAGEMENT ---
+        window.handleBackupDatabase = async () => {
+            try {
+                const colls = ['inventory', 'contacts', 'sales', 'transactions', 'expenses'];
+                let backup = {};
+                for (const c of colls) {
+                    const s = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', c));
+                    backup[c] = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                }
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backup, null, 2));
+                const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `woodit_backup.json`); dl.click();
+                showToast("Berhasil mencadangkan data.");
+            } catch (e) {
+                showToast("Gagal mencadangkan data.", "error");
+            }
         };
+
+        window.handleRestoreDatabase = async (e) => {
+            const file = e.target.files[0]; if(!file) return;
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    const loader = document.getElementById('loading');
+                    if(loader) loader.classList.remove('hidden');
+                    for (const collName of Object.keys(data)) {
+                        for (const item of data[collName]) {
+                            const { id, ...rest } = item;
+                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', collName, id), rest);
+                        }
+                    }
+                    showToast("Database dipulihkan."); location.reload();
+                } catch (err) {
+                    showToast("Format file salah.", "error");
+                    const loader = document.getElementById('loading');
+                    if(loader) loader.classList.add('hidden');
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        window.handleResetDatabase = async () => {
+            const input = prompt("Ketik 'RESET' untuk menghapus seluruh data sistem:");
+            if(input === 'RESET') {
+                const loader = document.getElementById('loading');
+                if(loader) loader.classList.remove('hidden');
+                try {
+                    const colls = ['inventory', 'contacts', 'sales', 'transactions', 'expenses'];
+                    for (const c of colls) {
+                        const s = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', c));
+                        for (const dItem of s.docs) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', c, dItem.id));
+                    }
+                    showToast("Sistem telah direset.");
+                    location.reload();
+                } catch (e) {
+                    showToast("Gagal mereset sistem.", "error");
+                    if(loader) loader.classList.add('hidden');
+                }
+            }
+        };
+
+        // --- UI & Navigasi ---
+        window.toggleMobileExtra = () => { document.getElementById('mobile-extra-menu').classList.toggle('hidden'); };
+        window.closeModal = (id) => { 
+            const m = document.getElementById(`${id}-modal`);
+            if(m) m.classList.add('hidden'); 
+            if(id==='wood') { temporaryBatchWood = []; renderBatch('wood'); } 
+            if(id==='sales') { temporaryBatchSales = []; renderBatch('sales'); }
+        };
+        window.openModal = (type, sub = '') => { 
+            if(type==='contact') {
+                const cType = document.getElementById('contact-type');
+                if(cType) cType.value = sub;
+            }
+            const m = document.getElementById(`${type}-modal`);
+            if(m) m.classList.remove('hidden'); 
+            refreshIcons();
+        };
+
+        window.switchView = (view) => {
+            document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+            const target = document.getElementById(`view-${view}`);
+            if(target) target.classList.remove('hidden');
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('bg-amber-600', 'text-white'));
+            const btn = document.getElementById(`nav-${view}`); if (btn) btn.classList.add('bg-amber-600', 'text-white');
+            refreshIcons(); window.scrollTo(0,0);
+        };
+
+        // --- Logika Perhitungan Kayu ---
+        window.liveUpdateCalc = () => {
+            const getVal = (id) => {
+                const el = document.getElementById(id);
+                return el ? (parseFloat(el.value) || 0) : 0;
+            };
+            const d1=getVal('log-d1'), d2=getVal('log-d2'), d3=getVal('log-d3'), d4=getVal('log-d4'), p=getVal('log-p'), trim=getVal('log-trim'), gr=getVal('log-gr');
+            currentLiveAvgD = Math.round((d1+d2+d3+d4)/4);
+            const pEffMeter=(p-trim)/100, pAsliMeter=p/100;
+            const volBruto = (0.7854 * Math.pow(currentLiveAvgD, 2) * pEffMeter) / 10000;
+            currentLiveVolGR = (0.7854 * Math.pow(gr, 2) * pAsliMeter) / 10000;
+            currentLiveVolWood = Math.max(0, volBruto - currentLiveVolGR);
+            
+            const avgDisp = document.getElementById('res-live-avg-d');
+            const grDisp = document.getElementById('res-live-vol-gr');
+            const woodDisp = document.getElementById('res-live-vol-wood');
+            
+            if(avgDisp) avgDisp.innerText = `${currentLiveAvgD} cm`;
+            if(grDisp) grDisp.innerText = currentLiveVolGR.toFixed(2);
+            if(woodDisp) woodDisp.innerText = currentLiveVolWood.toFixed(2);
+        };
+
+        window.addItemToBatch = (type) => {
+            if (type === 'wood') {
+                const woodType = document.getElementById('wood-type')?.value || '';
+                const noLog = document.getElementById('log-no')?.value || '';
+                const logGrade = document.getElementById('log-grade')?.value || '';
+                if (!currentLiveVolWood || !woodType) return;
+                temporaryBatchWood.push({ 
+                    tempId: Date.now(), type: woodType, noLog, grade: logGrade,
+                    unitVolume: parseFloat(currentLiveVolWood.toFixed(2)), volGR: parseFloat(currentLiveVolGR.toFixed(2)), 
+                    d1: parseFloat(document.getElementById('log-d1')?.value)||0,
+                    d2: parseFloat(document.getElementById('log-d2')?.value)||0,
+                    d3: parseFloat(document.getElementById('log-d3')?.value)||0,
+                    d4: parseFloat(document.getElementById('log-d4')?.value)||0,
+                    trim: parseFloat(document.getElementById('log-trim')?.value)||0,
+                    measurements: { avgD: currentLiveAvgD, p: parseFloat(document.getElementById('log-p')?.value)||0 } 
+                });
+            } else {
+                const vol = parseFloat(document.getElementById('sales-wood-vol')?.value)||0;
+                const prc = parseFloat(document.getElementById('sales-wood-price')?.value)||0;
+                if (!vol || !prc) return;
+                const stockId = document.getElementById('sales-stock-item-select')?.value || '';
+                const woodType = document.getElementById('sales-wood-type')?.value || '';
+                temporaryBatchSales.push({ tempId: Date.now(), woodType, volume: vol, price: prc, mode: stockId ? 'stock' : 'manual', stockId: stockId });
+            }
+            renderBatch(type);
+        };
+
+        const renderBatch = (type) => {
+            const list = type === 'wood' ? temporaryBatchWood : temporaryBatchSales;
+            const table = document.getElementById(`${type}-batch-table`);
+            if(table) table.innerHTML = list.map((i, idx) => `<tr class="border-b"><td class="p-3">${i.noLog||'-'}</td><td class="p-3 font-bold">${i.type||i.woodType}</td><td class="p-3 text-center">${(i.unitVolume||i.volume).toFixed(2)}</td><td class="p-3 text-right"><button onclick="removeFromBatch('${type}', ${idx})" class="text-red-500 font-bold">X</button></td></tr>`).join('');
+            const btn = document.getElementById(`btn-save-batch-${type}`);
+            if(btn) btn.disabled = list.length === 0;
+        };
+        window.removeFromBatch = (type, idx) => { if(type==='wood') temporaryBatchWood.splice(idx,1); else temporaryBatchSales.splice(idx,1); renderBatch(type); };
+
+        // --- Firebase CRUD ---
+        window.submitBatchToFirebase = async () => {
+            const nota = document.getElementById('wood-nota')?.value, sid = document.getElementById('wood-supplier-select')?.value, total = parseFloat(document.getElementById('wood-total-nota-price')?.value)||0, st = document.getElementById('wood-payment-status')?.value, dp = parseFloat(document.getElementById('wood-dp-amount')?.value)||0;
+            if(!nota || !sid) { showToast("Lengkapi data nota/supplier", "error"); return; }
+            const batch = writeBatch(db); const prcPer = total / temporaryBatchWood.length;
+            temporaryBatchWood.forEach(i => batch.set(doc(collection(db, 'artifacts', appId, 'public', 'data', 'inventory')), { ...i, nota, supplierId: sid, paymentStatus: st, totalPrice: prcPer, createdAt: serverTimestamp() }));
+            let newDebt = st === 'Hutang' ? total : (st === 'DP' ? total - dp : 0); 
+            if(newDebt > 0) batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'contacts', sid), { balance: increment(newDebt) });
+            let cash = st === 'Lunas' ? total : (st === 'DP' ? dp : 0); 
+            if(cash > 0) batch.set(doc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions')), { type: 'out', amount: cash, note: `Beli Kayu: ${nota}`, time: serverTimestamp() });
+            await batch.commit(); closeModal('wood'); showToast("Berhasil disimpan.");
+        };
+
+        window.submitBatchSalesToFirebase = async () => {
+            const nota = document.getElementById('sales-nota')?.value, cid = document.getElementById('sales-customer-select')?.value, st = document.getElementById('sales-payment-status')?.value, dp = parseFloat(document.getElementById('sales-dp-amount')?.value)||0;
+            if(!nota || !cid) { showToast("Lengkapi data nota/pelanggan", "error"); return; }
+            const batch = writeBatch(db); let totalSales = 0;
+            temporaryBatchSales.forEach(i => { totalSales += i.price; batch.set(doc(collection(db, 'artifacts', appId, 'public', 'data', 'sales')), { ...i, nota, customerId: cid, paymentStatus: st, dpAmount: dp, createdAt: serverTimestamp() }); if(i.mode==='stock') batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', i.stockId)); });
+            let newReceivable = st === 'Hutang' ? totalSales : (st === 'DP' ? totalSales - dp : 0);
+            if (newReceivable > 0) batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'contacts', cid), { balance: increment(newReceivable) });
+            let cashIn = st === 'Lunas' ? totalSales : (st === 'DP' ? dp : 0);
+            if (cashIn > 0) batch.set(doc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions')), { type: 'in', amount: cashIn, note: `Jual Kayu: ${nota}`, time: serverTimestamp() });
+            await batch.commit(); closeModal('sales'); showToast("Penjualan dicatat.");
+        };
+
+        window.handleExpenseSubmit = async (e) => { 
+            e.preventDefault(); 
+            const cat = document.getElementById('expense-category')?.value, note = document.getElementById('expense-note')?.value, amt = parseFloat(document.getElementById('expense-amount')?.value)||0; 
+            const batch = writeBatch(db); 
+            batch.set(doc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses')), { category: cat, amount: amt, note: note, createdAt: serverTimestamp() }); 
+            batch.set(doc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions')), { type: 'out', amount: amt, note: `Biaya: ${cat}`, time: serverTimestamp() }); 
+            await batch.commit(); closeModal('expense'); showToast("Biaya dicatat."); 
+        };
+
+        window.handlePaymentSubmit = async (e) => {
+            e.preventDefault();
+            const cid = document.getElementById('payment-contact-id').value;
+            const amt = parseFloat(document.getElementById('payment-amount').value);
+            const note = document.getElementById('payment-note').value;
+            const contact = contactsData.find(c => c.id === cid);
+            if (!contact || amt <= 0) return;
+            const batch = writeBatch(db);
+            batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'contacts', cid), { balance: increment(-amt) });
+            batch.set(doc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions')), { type: contact.type === 'supplier' ? 'out' : 'in', amount: amt, note: `Pmb: ${contact.name} - ${note || 'Cicilan'}`, time: serverTimestamp() });
+            await batch.commit(); closeModal('payment'); showToast("Berhasil.");
+        };
+        
+        window.handleContactSubmit = async (e) => { 
+            e.preventDefault(); 
+            const type = document.getElementById('contact-type')?.value, name = document.getElementById('contact-name')?.value;
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contacts'), { type, name, balance: 0 }); 
+            closeModal('contact'); showToast("Kontak disimpan."); 
+        };
+        
+        window.handleDeleteInventory = async (nota) => { if(confirm('Hapus nota ini?')){ const b = writeBatch(db); inventoryData.filter(i=>i.nota === nota).forEach(item => b.delete(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', item.id))); await b.commit(); showToast("Dihapus."); } };
+        window.handleDeleteSales = async (nota) => { if(confirm('Hapus SJ ini?')){ const b = writeBatch(db); salesData.filter(i=>i.nota === nota).forEach(item => b.delete(doc(db, 'artifacts', appId, 'public', 'data', 'sales', item.id))); await b.commit(); showToast("Dihapus."); } };
+        window.handleDeleteContact = async (id) => { if(confirm('Hapus kontak?')) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'contacts', id)); };
+        
+        window.saveCompanyProfile = async () => { 
+            const name = document.getElementById('setting-company-name')?.value, addr = document.getElementById('setting-company-address')?.value, phone = document.getElementById('setting-company-phone')?.value;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'company'), { name, address: addr, phone, updatedAt: serverTimestamp() }); 
+            showToast("Profil diperbarui."); 
+        };
+
+        window.openPaymentModal = (contactId) => {
+            const contact = contactsData.find(c => c.id === contactId);
+            if (!contact) return;
+            document.getElementById('payment-contact-id').value = contactId;
+            document.getElementById('payment-current-balance').innerText = formatCurrency(contact.balance);
+            document.getElementById('payment-amount').value = '';
+            document.getElementById('payment-note').value = '';
+            document.getElementById('payment-title').innerText = contact.type === 'supplier' ? "Bayar Hutang" : "Terima Piutang";
+            openModal('payment');
+        };
+
+        // --- FITUR CETAK PROFESIONAL ---
+        window.printNotaDetail = () => {
+            const frame = document.getElementById('print-frame');
+            if (!currentDetailItems || currentDetailItems.length === 0) {
+                showToast("Tidak ada data untuk dicetak", "error");
+                return;
+            }
+
+            const partner = contactsData.find(c => c.id === (currentDetailItems[0]?.supplierId || currentDetailItems[0]?.customerId));
+            const partnerName = partner?.name || '-';
+            const total = currentDetailItems.reduce((a, b) => a + (b.totalPrice || b.price), 0);
+            const dateStr = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+
+            let tableHtml = currentDetailItems.map((i, index) => `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px; text-align: center;">${index + 1}</td>
+                    <td style="padding: 10px;">${i.noLog || '-'}</td>
+                    <td style="padding: 10px;">${i.type || i.woodType} ${i.grade ? '- ' + i.grade : ''}</td>
+                    <td style="padding: 10px; text-align: center;">${(i.measurements?.p || '-')}</td>
+                    <td style="padding: 10px; text-align: center;">${i.measurements?.avgD || ( ( (parseFloat(i.d1)||0) + (parseFloat(i.d2)||0) + (parseFloat(i.d3)||0) + (parseFloat(i.d4)||0) ) / 4 ).toFixed(0) || '-'}</td>
+                    <td style="padding: 10px; text-align: center; font-weight: bold;">${(i.unitVolume || i.volume || 0).toFixed(2)}</td>
+                    <td style="padding: 10px; text-align: right;">${formatCurrency(i.totalPrice || i.price)}</td>
+                </tr>
+            `).join('');
+
+            const content = `
+                <html>
+                <head>
+                    <title>Cetak - ${currentDetailNota}</title>
+                    <style>
+                        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+                        body { font-family: 'Inter', sans-serif; padding: 50px; color: #1e293b; line-height: 1.5; }
+                        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #334155; padding-bottom: 25px; margin-bottom: 35px; }
+                        .company-info h1 { margin: 0; color: #b45309; font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+                        .company-info p { margin: 4px 0; font-size: 13px; color: #64748b; }
+                        .document-title { text-align: right; }
+                        .document-title h2 { margin: 0; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; color: #1e293b; }
+                        .document-title p { margin: 4px 0; font-size: 14px; font-weight: 700; color: #475569; }
+                        
+                        .meta-info { display: flex; justify-content: space-between; margin-bottom: 30px; font-size: 14px; }
+                        .meta-box span { display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 800; margin-bottom: 3px; }
+                        .meta-box p { margin: 0; font-weight: 700; font-size: 15px; }
+
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 35px; }
+                        th { background: #f8fafc; border-bottom: 2px solid #cbd5e1; padding: 12px; text-align: left; font-size: 11px; text-transform: uppercase; color: #475569; }
+                        td { font-size: 13px; color: #334155; }
+                        
+                        .total-wrap { display: flex; justify-content: flex-end; }
+                        .total-box { background: #f1f5f9; padding: 20px 30px; border-radius: 12px; min-width: 250px; text-align: right; }
+                        .total-box span { font-size: 12px; font-weight: 800; color: #64748b; text-transform: uppercase; display: block; }
+                        .total-box strong { font-size: 22px; color: #1e293b; display: block; margin-top: 5px; }
+
+                        .signature-wrap { margin-top: 60px; display: flex; justify-content: space-between; }
+                        .signature-box { text-align: center; width: 220px; }
+                        .signature-box p { font-size: 13px; font-weight: 700; margin-bottom: 80px; }
+                        .signature-box .line { border-top: 1px solid #334155; margin: 0 20px; }
+                        .signature-box span { font-size: 12px; font-weight: 700; }
+
+                        .print-footer { margin-top: 60px; text-align: center; font-size: 10px; color: #cbd5e1; border-top: 1px dashed #e2e8f0; padding-top: 15px; font-style: italic; }
+                        @page { size: A4; margin: 0; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div class="company-info">
+                            <h1>${companyProfile.name}</h1>
+                            <p>${companyProfile.address}</p>
+                            <p>Tlp: ${companyProfile.phone}</p>
+                        </div>
+                        <div class="document-title">
+                            <h2>${currentDetailType === 'inventory' ? 'Nota Masuk Log' : 'Surat Jalan Kayu'}</h2>
+                            <p># ${currentDetailNota}</p>
+                        </div>
+                    </div>
+
+                    <div class="meta-info">
+                        <div class="meta-box">
+                            <span>Ditujukan Kepada:</span>
+                            <p>${partnerName}</p>
+                        </div>
+                        <div class="meta-box" style="text-align: right;">
+                            <span>Tanggal Terbit:</span>
+                            <p>${dateStr}</p>
+                        </div>
+                    </div>
+
+                    <div class="meta-info">
+                        <div class="meta-box">
+                            <span>Status Transaksi:</span>
+                            <p style="color: ${currentDetailItems[0]?.paymentStatus === 'Lunas' ? '#10b981' : '#ef4444'}">${currentDetailItems[0]?.paymentStatus || 'Lunas'}</p>
+                        </div>
+                        <div class="meta-box" style="text-align: right;">
+                            <span>Total Volume:</span>
+                            <p>${currentDetailItems.reduce((a, b) => a + (b.unitVolume || b.volume || 0), 0).toFixed(2)} m³</p>
+                        </div>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="text-align: center; width: 40px;">No</th>
+                                <th>No LOG / Tag</th>
+                                <th>Deskripsi Barang</th>
+                                <th style="text-align: center;">P (cm)</th>
+                                <th style="text-align: center;">D (cm)</th>
+                                <th style="text-align: center;">Vol (m³)</th>
+                                <th style="text-align: right;">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableHtml}
+                        </tbody>
+                    </table>
+
+                    <div class="total-wrap">
+                        <div class="total-box">
+                            <span>Nilai Total Transaksi</span>
+                            <strong>${formatCurrency(total)}</strong>
+                        </div>
+                    </div>
+
+                    <div class="signature-wrap">
+                        <div class="signature-box">
+                            <p>Pihak Kedua / Penerima</p>
+                            <div class="line"></div>
+                            <span>( Nama Terang & Cap )</span>
+                        </div>
+                        <div class="signature-box">
+                            <p>Pihak Pertama / Admin</p>
+                            <div class="line"></div>
+                            <span>( ${companyProfile.name} )</span>
+                        </div>
+                    </div>
+
+                    <div class="print-footer">
+                        Dokumen ini sah dan dicetak secara otomatis melalui Wood-IT Log Management System pada ${new Date().toLocaleString()}
+                    </div>
+                </body>
+                </html>
+            `;
+
+            const doc = frame.contentWindow.document;
+            doc.open();
+            doc.write(content);
+            doc.close();
+
+            // Berikan waktu sedikit agar font ter-load sebelum print dialog muncul
+            setTimeout(() => {
+                frame.contentWindow.focus();
+                frame.contentWindow.print();
+            }, 600);
+        };
+
+        // --- Database Sync ---
+        const startSync = () => {
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'inventory'), s => { inventoryData = s.docs.map(d=>({id:d.id, ...d.data()})); renderInventory(); updateStats(); });
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'contacts'), s => { contactsData = s.docs.map(d=>({id:d.id, ...d.data()})); renderContacts(); updateSelects(); updateStats(); });
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'sales'), s => { salesData = s.docs.map(d=>({id:d.id, ...d.data()})); renderSales(); updateStats(); });
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), s => { transactionsData = s.docs.map(d=>({id:d.id, ...d.data()})); renderTransactions(); updateStats(); });
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), s => { expensesData = s.docs.map(d=>({id:d.id, ...d.data()})); renderExpenses(); updateStats(); });
+            onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'company'), s => { 
+                if(s.exists()){ 
+                    companyProfile = s.data(); 
+                    const sName = document.getElementById('sidebar-company-name'); 
+                    if(sName) sName.innerText = companyProfile.name; 
+                    // Isi field di setting jika sedang di view setting
+                    const sInpName = document.getElementById('setting-company-name');
+                    const sInpAddr = document.getElementById('setting-company-address');
+                    const sInpPhone = document.getElementById('setting-company-phone');
+                    if(sInpName) sInpName.value = companyProfile.name;
+                    if(sInpAddr) sInpAddr.value = companyProfile.address;
+                    if(sInpPhone) sInpPhone.value = companyProfile.phone;
+                } 
+            });
+        };
+
+        window.renderInventory = () => {
+            const g = inventoryData.reduce((acc, i) => { if(!acc[i.nota]) acc[i.nota] = { ...i, vol:0, prc:0 }; acc[i.nota].vol += (i.unitVolume || 0); acc[i.nota].prc += (i.totalPrice || 0); return acc; }, {});
+            const tbody = document.getElementById('inventory-table-body');
+            if(tbody) tbody.innerHTML = Object.values(g).map(n => `<tr class="hover:bg-slate-50 transition"><td class="px-5 py-4 font-bold text-blue-600 uppercase">${n.nota}</td><td class="px-5 py-4">${contactsData.find(c=>c.id===n.supplierId)?.name||'-'}</td><td class="px-5 py-4 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${n.paymentStatus==='Lunas'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${n.paymentStatus}</span></td><td class="px-5 py-4 text-center font-bold">${n.vol.toFixed(2)}</td><td class="px-5 py-4 text-right">${formatCurrency(n.prc)}</td><td class="px-5 py-4 text-right no-print flex justify-end space-x-2"><button onclick="showDetail('inventory','${n.nota}')" class="p-1.5 bg-slate-100 rounded-lg text-slate-600"><i data-lucide="eye" class="w-4 h-4"></i></button><button onclick="handleDeleteInventory('${n.nota}')" class="p-1.5 bg-red-50 text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('');
+            refreshIcons();
+        };
+
+        window.renderSales = () => {
+            const g = salesData.reduce((acc, i) => { if(!acc[i.nota]) acc[i.nota] = { ...i, vol: 0, prc: 0 }; acc[i.nota].vol += (i.volume || 0); acc[i.nota].prc += (i.price || 0); return acc; }, {});
+            const tbody = document.getElementById('sales-table-body');
+            if(tbody) tbody.innerHTML = Object.values(g).map(n => `<tr class="hover:bg-slate-50 transition"><td class="px-5 py-4 font-bold text-blue-600 uppercase">${n.nota}</td><td class="px-5 py-4">${contactsData.find(c=>c.id===n.customerId)?.name||'-'}</td><td class="px-5 py-4 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${n.paymentStatus === 'Lunas' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">${n.paymentStatus || 'Lunas'}</span></td><td class="px-5 py-4 text-center font-bold">${n.vol.toFixed(2)}</td><td class="px-5 py-4 text-right">${formatCurrency(n.prc)}</td><td class="px-5 py-4 text-right flex justify-end space-x-2"><button onclick="showDetail('sales','${n.nota}')" class="p-1.5 bg-slate-100 rounded-lg"><i data-lucide="eye" class="w-4 h-4"></i></button><button onclick="handleDeleteSales('${n.nota}')" class="p-1.5 bg-red-50 text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('');
+            refreshIcons();
+        };
+
+        window.renderExpenses = () => {
+            const tbody = document.getElementById('expenses-table-body');
+            if(tbody) tbody.innerHTML = expensesData.sort((a,b)=>b.createdAt?.seconds - a.createdAt?.seconds).map(e => `<tr><td class="px-5 py-4 text-[10px] text-slate-400">${e.createdAt?.toDate()?.toLocaleDateString()||'-'}</td><td class="px-5 py-4 font-bold text-rose-600 uppercase tracking-tighter">${e.category}</td><td class="px-5 py-4 italic text-slate-500 truncate max-w-[100px]">${e.note||'-'}</td><td class="px-5 py-4 text-right font-black">${formatCurrency(e.amount)}</td><td class="px-5 py-4 text-right"><button onclick="deleteDoc(doc(db,'artifacts',appId,'public', 'data', 'expenses','${e.id}'))" class="text-slate-300"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('');
+            refreshIcons();
+        };
+
+        window.renderContacts = () => {
+            const card = (c) => `<div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-4"><div class="flex justify-between items-start"><div class="p-3 bg-slate-100 rounded-2xl"><i data-lucide="${c.type === 'supplier' ? 'truck' : 'users'}" class="w-5 h-5 text-slate-600"></i></div><div class="text-right"><p class="text-[9px] font-bold uppercase text-slate-400 tracking-widest">${c.type==='supplier'?'Hutang':'Piutang'}</p><p class="font-black text-base ${c.balance>0 ? (c.type==='supplier'?'text-red-600':'text-blue-600') : 'text-slate-300'}">${formatCurrency(c.balance)}</p></div></div><div><h4 class="font-bold text-slate-900 text-sm uppercase">${c.name}</h4></div><div class="pt-4 border-t border-slate-50 flex gap-2">${c.balance > 0 ? `<button onclick="openPaymentModal('${c.id}')" class="flex-1 py-2.5 bg-slate-900 text-white text-[10px] font-bold rounded-xl shadow-lg transition active:scale-95 uppercase tracking-widest">BAYAR/CICIL</button>` : ''}<button onclick="handleDeleteContact('${c.id}')" class="px-3 py-2.5 bg-red-50 text-red-500 rounded-xl transition active:scale-95"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div>`;
+            const sList = document.getElementById('suppliers-list'); if(sList) sList.innerHTML = contactsData.filter(c => c.type === 'supplier').map(card).join('');
+            const cList = document.getElementById('customers-list'); if(cList) cList.innerHTML = contactsData.filter(c => c.type === 'customer').map(card).join('');
+            refreshIcons();
+        };
+
+        window.renderTransactions = () => {
+            const tbody = document.getElementById('cashflow-table-body');
+            if(tbody) tbody.innerHTML = transactionsData.sort((a,b)=>b.time?.seconds-a.time?.seconds).map(t => `<tr class="hover:bg-slate-50 transition"><td class="px-6 py-4 text-xs text-slate-400 font-medium">${t.time?.toDate()?.toLocaleTimeString()||''}</td><td class="px-6 py-4 font-bold text-slate-800">${t.note}</td><td class="px-6 py-4"><span class="px-2 py-1 rounded text-[10px] font-bold uppercase ${t.type==='in'?'bg-green-100 text-green-700':'bg-orange-100 text-orange-700'}">${t.type}</span></td><td class="px-6 py-4 text-right font-black ${t.type==='in'?'text-emerald-600':'text-rose-600'}">${formatCurrency(t.amount)}</td></tr>`).join('');
+            const rLog = document.getElementById('recent-logs');
+            if(rLog) rLog.innerHTML = transactionsData.sort((a,b)=>b.time?.seconds-a.time?.seconds).slice(0,5).map(t => `<div class="flex justify-between items-center p-3 bg-white rounded-2xl border border-slate-100"><div><p class="font-bold text-slate-800 tracking-tight">${t.note}</p><p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">${t.time?.toDate()?.toLocaleTimeString()||''}</p></div><span class="font-black text-xs ${t.type==='in'?'text-emerald-600':'text-rose-500'}">${t.type==='in'?'+':'-'} ${formatCurrency(t.amount)}</span></div>`).join('');
+        };
+
+        window.updateStats = () => {
+            const vol = inventoryData.reduce((a,c)=>a+(c.unitVolume||0),0), stockVal = inventoryData.reduce((a,c)=>a+(c.totalPrice||0),0), d = contactsData.filter(c=>c.type==='supplier').reduce((a,c)=>a+c.balance,0), p = contactsData.filter(c=>c.type==='customer').reduce((a,c)=>a+c.balance,0), cin = transactionsData.filter(t=>t.type==='in').reduce((a,t)=>a+t.amount,0), cout = transactionsData.filter(t=>t.type==='out').reduce((a,t)=>a+t.amount,0), rev = salesData.reduce((a,c)=>a+c.price,0), buy = inventoryData.reduce((a,c)=>a+c.totalPrice,0), exp = expensesData.reduce((a,c)=>a+c.amount,0);
+            const volDisp = document.getElementById('stat-total-volume'), prcDisp = document.getElementById('stat-total-price'), debtDisp = document.getElementById('stat-total-debt'), recDisp = document.getElementById('stat-total-receivable'), rRev = document.getElementById('report-total-revenue'), rBuy = document.getElementById('report-total-cogs'), rExp = document.getElementById('report-total-expenses'), rGP = document.getElementById('report-gross-profit-accrual'), rCin = document.getElementById('report-cash-in'), rCout = document.getElementById('report-cash-out'), rNet = document.getElementById('report-net-cash'), loader = document.getElementById('loading');
+            if(volDisp) volDisp.innerText = `${vol.toFixed(2)} m³`; if(prcDisp) prcDisp.innerText = formatCurrency(stockVal); if(debtDisp) debtDisp.innerText = formatCurrency(d); if(recDisp) recDisp.innerText = formatCurrency(p); if(rRev) rRev.innerText = formatCurrency(rev); if(rBuy) rBuy.innerText = formatCurrency(buy); if(rExp) rExp.innerText = `-${formatCurrency(exp)}`; if(rGP) rGP.innerText = formatCurrency(rev - buy - exp); if(rCin) rCin.innerText = formatCurrency(cin); if(rCout) rCout.innerText = formatCurrency(cout); if(rNet) rNet.innerText = formatCurrency(cin - cout); if(loader) loader.classList.add('hidden');
+        };
+
+        window.toggleDPInput = (type) => { const s = document.getElementById(`${type}-payment-status`)?.value, dInput = document.getElementById(`${type}-dp-amount`); if(dInput) dInput.classList.toggle('hidden', s !== 'DP'); };
+        window.updateSelects = () => {
+            const sS = document.getElementById('wood-supplier-select'); if(sS) sS.innerHTML = contactsData.filter(c=>c.type==='supplier').map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+            const cS = document.getElementById('sales-customer-select'); if(cS) cS.innerHTML = contactsData.filter(c=>c.type==='customer').map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+            const stS = document.getElementById('sales-stock-item-select'); if(stS) stS.innerHTML = '<option value="">Pilih Stok</option>' + inventoryData.map(i=>`<option value="${i.id}">${i.type} (${(i.unitVolume||0).toFixed(2)}) - ${i.nota}</option>`).join('');
+        };
+        window.autoFillSalesFromStock = () => { const id = document.getElementById('sales-stock-item-select')?.value, it = inventoryData.find(i=>i.id===id); if(it){ const wType = document.getElementById('sales-wood-type'), wVol = document.getElementById('sales-wood-vol'); if(wType) wType.value = it.type; if(wVol) wVol.value = it.unitVolume; } };
+        
+        window.showDetail = (t, n) => {
+            currentDetailType = t;
+            currentDetailNota = n;
+            
+            const m = document.getElementById('detail-modal'); 
+            let itms = [], c = null, total = 0; 
+            
+            if(t === 'inventory'){ 
+                itms = inventoryData.filter(i=>i.nota === n); 
+                c = contactsData.find(x=>x.id===itms[0]?.supplierId); 
+                total = itms.reduce((a,b)=>a+(b.totalPrice||0),0); 
+                const lbl = document.getElementById('detail-meta-contact-label'); 
+                if(lbl) lbl.innerText = "Supplier"; 
+            } else { 
+                itms = salesData.filter(i=>i.nota === n); 
+                c = contactsData.find(x=>x.id===itms[0]?.customerId); 
+                total = itms.reduce((a,b)=>a+(b.price||0),0); 
+                const lbl = document.getElementById('detail-meta-contact-label'); 
+                if(lbl) lbl.innerText = "Pelanggan"; 
+            }
+            
+            currentDetailItems = itms;
+
+            const mInv = document.getElementById('detail-meta-invoice'), mCName = document.getElementById('detail-meta-contact-name'), mTot = document.getElementById('detail-meta-total'), mStat = document.getElementById('detail-meta-status'), mTBody = document.getElementById('detail-table-body'); 
+            if(mInv) mInv.innerText = n; 
+            if(mCName) mCName.innerText = c?.name||'-'; 
+            if(mTot) mTot.innerText = formatCurrency(total); 
+            if(mStat) mStat.innerText = itms[0]?.paymentStatus || 'Lunas'; 
+            if(mTBody) mTBody.innerHTML = itms.map(i => {
+                const avgD = i.measurements?.avgD || ( ( (parseFloat(i.d1)||0) + (parseFloat(i.d2)||0) + (parseFloat(i.d3)||0) + (parseFloat(i.d4)||0) ) / 4 ).toFixed(0);
+                return `<tr><td class="p-3 uppercase font-bold text-slate-500">${i.noLog||'-'}</td><td class="p-3 font-bold">${i.type||i.woodType} ${i.grade ? '/ '+i.grade : ''}</td><td class="p-3 text-center">${i.d1||'-'}</td><td class="p-3 text-center">${i.d2||'-'}</td><td class="p-3 text-center">${i.d3||'-'}</td><td class="p-3 text-center">${i.d4||'-'}</td><td class="p-3 text-center">${i.trim||'-'}</td><td class="p-3 text-center text-slate-400 italic">${(i.volGR||0).toFixed(2)}</td><td class="p-3 text-center font-bold text-amber-700">${(i.unitVolume||i.volume||0).toFixed(2)}</td><td class="p-3 text-right font-medium">${formatCurrency(i.totalPrice||i.price)}</td></tr>`;
+            }).join(''); 
+            if(m) m.classList.remove('hidden'); 
+            refreshIcons();
+        };
+
+        onAuthStateChanged(auth, u => { if(u) startSync(); });
+        signInAnonymously(auth);
     </script>
 </body>
 </html>
